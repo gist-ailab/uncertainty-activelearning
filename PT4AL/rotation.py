@@ -13,13 +13,13 @@ import argparse
 import random
 
 from models import *
-from loader import Loader, RotationLoader
+from loader import Loader, RotationLoader, General_Loader
 from utils import progress_bar
 import numpy as np
 
 os.environ["CUDA_VISIBLE_DEVICES"]='7'
 
-parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
+parser = argparse.ArgumentParser(description='PyTorch pt4al Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
@@ -32,6 +32,7 @@ start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 # Data
 print('==> Preparing data..')
 transform_train = transforms.Compose([
+    transforms.Resize(36),
     transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
@@ -39,6 +40,7 @@ transform_train = transforms.Compose([
 ])
 
 transform_test = transforms.Compose([
+    transforms.Resize(32),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])

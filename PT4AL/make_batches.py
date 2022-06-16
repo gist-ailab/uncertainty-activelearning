@@ -22,14 +22,14 @@ os.environ["CUDA_VISIBLE_DEVICES"]='7'
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
-
+parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty'
 
 transform_test = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
-testset = RotationLoader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
+testset = RotationLoader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
 testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
 
 net = ResNet18()
@@ -40,7 +40,7 @@ if device == 'cuda':
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
-checkpoint = torch.load('./checkpoint/rotation.pth')
+checkpoint = torch.load(parameter_path+'/checkpoint/rotation.pth')
 net.load_state_dict(checkpoint['net'])
 
 criterion = nn.CrossEntropyLoss()
@@ -72,14 +72,14 @@ def test(epoch):
             loss = loss.item()
             s = str(float(loss)) + '//' + str(path[0]) + "\n"
 
-            with open('./rotation_loss.txt', 'a') as f:
+            with open(parameter_path+'/rotation_loss.txt', 'a') as f:
                 f.write(s)
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
 if __name__ == "__main__":
     # test(1)
-    with open('./rotation_loss.txt', 'r') as f:
+    with open(parameter_path+'/rotation_loss.txt', 'r') as f:
         losses = f.readlines()
 
     loss_1 = []
@@ -110,7 +110,7 @@ if __name__ == "__main__":
         for jj in sample5000:
             b[name_dict[name_2[jj].split('/')[-2]]] +=1
         print(f'{i} Class Distribution: {b}')
-        s = './loss/batch_' + str(i) + '.txt'
+        s = parameter_path+'/loss/batch_' + str(i) + '.txt'
         for k in sample5000:
             with open(s, 'a') as f:
                 f.write(name_2[k]+'\n')
