@@ -9,6 +9,42 @@ import numpy as np
 import random
 import cv2
 
+class OrderPredictionLoader(Dataset):
+    def __init__(self, is_train=True, transform=None, path='./DATA'):
+        self.is_train = is_train
+        self.transform = transform
+        self.label_dict = {'normal':0, 'modified':1}
+        if self.is_train==0:
+            self.img_path = glob.glob(path+'/train/*/*')
+        else:
+            self.img_path = glob.glob(path+'/train/*/*')
+    
+    def __len__(self):
+        return len(self.img_path)
+    
+    def __getitem__(self, idx):
+        img = cv2.imread(self.img_path[idx])
+        img = Image.fromarray(img)
+        
+        if self.is_train:
+            img = self.transform(img)
+            if random.randint(0,1):
+                _,w,_ = img.shape
+                img1 = img[:,:w//2,:]
+                img2 = img[:,w//2:,:]
+                img3 = torch.cat((img2,img1),dim=1)
+                return img3, 1
+            else: return img, 0
+        else:
+            img = self.transform(img)
+            if random.randint(0,1):
+                _,w,_ = img.shape
+                img1 = img[:,:w//2,:]
+                img2 = img[:,w//2:,:]
+                img3 = torch.cat((img2,img1),dim=1)
+                return img3, 1, self.img_path[idx]
+            else: return img, 0, self.img_path[idx]
+
 class RotationLoader(Dataset):
     def __init__(self, is_train=True, transform=None, path='./DATA'):
         self.is_train = is_train
@@ -17,7 +53,7 @@ class RotationLoader(Dataset):
         if self.is_train==0: # train
             self.img_path = glob.glob(path+'/train/*/*')
         else:
-            self.img_path = glob.glob(path+'/test/*/*')
+            self.img_path = glob.glob(path+'/train/*/*')
 
     def __len__(self):
         return len(self.img_path)

@@ -13,11 +13,11 @@ import argparse
 import random
 
 from models import *
-from loader import Loader, RotationLoader, General_Loader
+from loader import Loader, OrderPredictionLoader, General_Loader
 from utils import progress_bar
 import numpy as np
 
-os.environ["CUDA_VISIBLE_DEVICES"]='3'
+os.environ["CUDA_VISIBLE_DEVICES"]='2'
 
 parser = argparse.ArgumentParser(description='PyTorch pt4al Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -29,7 +29,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
-parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/rotation'
+parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/orderprediction'
 
 # Data
 print('==> Preparing data..')
@@ -52,11 +52,11 @@ transform_test = transforms.Compose([
 
 # classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
 
-trainset = RotationLoader(is_train=True, transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=32, shuffle=True, num_workers=2)
+trainset = OrderPredictionLoader(is_train=True, transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True, num_workers=2)
 
-testset = RotationLoader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
-testloader = torch.utils.data.DataLoader(testset, batch_size=32, shuffle=False, num_workers=2)
+testset = OrderPredictionLoader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
+testloader = torch.utils.data.DataLoader(testset, batch_size=16, shuffle=False, num_workers=2)
 
 print(next(iter(trainset))[0].shape)
 
@@ -64,7 +64,7 @@ print(next(iter(trainset))[0].shape)
 print('==> Building model..')
 net = ResNet18()
 # print(net)
-net.linear = nn.Linear(512, 4)
+net.linear = nn.Linear(512, 2)
 net = net.to(device)
 
 
@@ -83,31 +83,19 @@ def train(epoch):
     train_loss = 0
     correct = 0
     total = 0
-    for batch_idx, (inputs, inputs1, inputs2, inputs3, targets, targets1, targets2, targets3) in enumerate(trainloader):
-        inputs, inputs1, targets, targets1 = inputs.to(device), inputs1.to(device), targets.to(device), targets1.to(device)
-        inputs2, inputs3, targets2, targets3 = inputs2.to(device), inputs3.to(device), targets2.to(device), targets3.to(device)
+    for batch_idx, (inputs, targets) in enumerate(trainloader):
+        inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
-        outputs, outputs1, outputs2, outputs3 = net(inputs), net(inputs1), net(inputs2), net(inputs3)
+        outputs = net(inputs)
 
-        loss1 = criterion(outputs, targets)
-        loss2 = criterion(outputs1, targets1)
-        loss3 = criterion(outputs2, targets2)
-        loss4 = criterion(outputs3, targets3)
-        loss = (loss1+loss2+loss3+loss4)/4.
+        loss = criterion(outputs, targets)
         loss.backward()
         optimizer.step()
 
         train_loss += loss.item()
         _, predicted = outputs.max(1)
-        _, predicted1 = outputs1.max(1)
-        _, predicted2 = outputs2.max(1)
-        _, predicted3 = outputs3.max(1)
-        total += targets.size(0)*4
-
+        total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
-        correct += predicted1.eq(targets1).sum().item()
-        correct += predicted2.eq(targets2).sum().item()
-        correct += predicted3.eq(targets3).sum().item()
 
         progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                      % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
@@ -120,36 +108,21 @@ def test(epoch):
     correct = 0
     total = 0
     with torch.no_grad():
-        for batch_idx, (inputs, inputs1, inputs2, inputs3, targets, targets1, targets2, targets3, path) in enumerate(testloader):
-            inputs, inputs1, targets, targets1 = inputs.to(device), inputs1.to(device), targets.to(device), targets1.to(device)
-            inputs2, inputs3, targets2, targets3 = inputs2.to(device), inputs3.to(device), targets2.to(device), targets3.to(device)
+        for batch_idx, (inputs, targets, path) in enumerate(testloader):
+            inputs, targets= inputs.to(device), targets.to(device)
             outputs = net(inputs)
-            outputs1 = net(inputs1)
-            outputs2 = net(inputs2)
-            outputs3 = net(inputs3)
-            loss1 = criterion(outputs, targets)
-            loss2 = criterion(outputs1, targets1)
-            loss3 = criterion(outputs2, targets2)
-            loss4 = criterion(outputs3, targets3)
-            loss = (loss1+loss2+loss3+loss4)/4.
+            loss = criterion(outputs, targets)
             test_loss += loss.item()
             _, predicted = outputs.max(1)
-            _, predicted1 = outputs1.max(1)
-            _, predicted2 = outputs2.max(1)
-            _, predicted3 = outputs3.max(1)
-            total += targets.size(0)*4
-
+            total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
-            correct += predicted1.eq(targets1).sum().item()
-            correct += predicted2.eq(targets2).sum().item()
-            correct += predicted3.eq(targets3).sum().item()
 
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
     # Save checkpoint.
     acc = 100.*correct/total
-    with open(parameter_path+'/best_rotation.txt','a') as f:
+    with open(parameter_path+'/best_orderprediction.txt','a') as f:
         f.write(str(acc)+':'+str(epoch)+'\n')
     if acc > best_acc:
         print('Saving..')
@@ -158,15 +131,15 @@ def test(epoch):
             'acc': acc,
             'epoch': epoch,
         }
-        if not os.path.isdir('checkpoint'):
-            os.mkdir('checkpoint')
+        if not os.path.isdir(parameter_path+'/checkpoint'):
+            os.mkdir(parameter_path+'/checkpoint')
         # save rotation weights
-        torch.save(state, parameter_path+'/checkpoint/rotation.pth')
+        torch.save(state, parameter_path+'/checkpoint/orderprediction.pth')
         best_acc = acc
 
 
-for epoch in range(start_epoch, start_epoch+121):
+for epoch in range(start_epoch, start_epoch+120):
     train(epoch)
-    if epoch%10 == 0:
+    if epoch%10==0:
         test(epoch)
     scheduler.step()
