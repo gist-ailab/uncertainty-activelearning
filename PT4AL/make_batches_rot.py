@@ -17,7 +17,7 @@ from models import *
 from loader import Loader, RotationLoader
 from utils import progress_bar
 
-os.environ["CUDA_VISIBLE_DEVICES"]='7'
+os.environ["CUDA_VISIBLE_DEVICES"]='6'
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
