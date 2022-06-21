@@ -12,7 +12,8 @@ import os
 import argparse
 import random
 
-from models import *
+# from models import *
+from models.resnet_128 import *
 from loader import Loader, OrderPredictionLoader, General_Loader
 from utils import progress_bar
 import numpy as np

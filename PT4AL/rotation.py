@@ -12,12 +12,13 @@ import os
 import argparse
 import random
 
-from models import *
+# from models import *
+from models.resnet_128 import *
 from loader import Loader, RotationLoader, General_Loader
 from utils import progress_bar
 import numpy as np
 
-os.environ["CUDA_VISIBLE_DEVICES"]='3'
+os.environ["CUDA_VISIBLE_DEVICES"]='6'
 
 parser = argparse.ArgumentParser(description='PyTorch pt4al Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')

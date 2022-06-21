@@ -15,7 +15,7 @@ import numpy as np
 
 # from models import *
 from models.resnet_128 import *
-from loader import Loader, Loader2
+from loader import Loader, Loader2, General_Loader
 from utils import progress_bar
 
 os.environ["CUDA_VISIBLE_DEVICES"]='7'
@@ -26,6 +26,8 @@ parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 args = parser.parse_args()
 
+parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/orderprediction'
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
@@ -33,22 +35,26 @@ start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 # Data
 print('==> Preparing data..')
 transform_train = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
+    transforms.Resize([144,144]),
+    transforms.RandomCrop([128,128]),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
 transform_test = transforms.Compose([
+    transforms.Resize([128,128]),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
+classes = {'007_강황':0, '013_분꽃':1, '018_배초향':2, '022_부추':3, '029_백도라지':4,
+           '040_고려엉겅퀴':5, '096_곰보배추':6, '100_도꼬마리':7, '110_흰민들레':8, '120_좀향유':9}
 
-testset = Loader2(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
+testset = General_Loader(is_train=False,  transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
 testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
 
-classes = ('plane', 'car', 'bird', 'cat', 'deer',
-           'dog', 'frog', 'horse', 'ship', 'truck')
+# classes = ('plane', 'car', 'bird', 'cat', 'deer',
+#            'dog', 'frog', 'horse', 'ship', 'truck')
 
 # Model
 print('==> Building model..')
@@ -113,7 +119,7 @@ def test(net, criterion, epoch, cycle):
         }
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
-        torch.save(state, f'./checkpoint/main_{cycle}.pth')
+        torch.save(state, parameter_path + f'/checkpoint/main_{cycle}.pth')
         best_acc = acc
 
 # class-balanced sampling (pseudo labeling)
@@ -218,14 +224,14 @@ if __name__ == '__main__':
         print('Cycle ', cycle)
 
         # open 5k batch (sorted low->high)
-        with open(f'./loss/batch_{cycle}.txt', 'r') as f:
+        with open(parameter_path+f'/loss/batch_{cycle}.txt', 'r') as f:
             samples = f.readlines()
             
         if cycle > 0:
             print('>> Getting previous checkpoint')
             # prevnet = ResNet18().to(device)
             # prevnet = torch.nn.DataParallel(prevnet)
-            checkpoint = torch.load(f'./checkpoint/main_{cycle-1}.pth')
+            checkpoint = torch.load(parameter_path+'/checkpoint/main_{cycle-1}.pth')
             net.load_state_dict(checkpoint['net'])
 
             # sampling
@@ -233,11 +239,12 @@ if __name__ == '__main__':
         else:
             # first iteration: sample 1k at even intervals
             samples = np.array(samples)
-            sample1k = samples[[j*5 for j in range(1000)]]
+            # sample1k = samples[[j*5 for j in range(1000)]]
+            sample1k = samples[[j for j in range(900)]]
         # add 1k samples to labeled set
         labeled.extend(sample1k)
         print(f'>> Labeled length: {len(labeled)}')
-        trainset = Loader2(is_train=True, transform=transform_train, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10', path_list=labeled)
+        trainset = General_Loader(is_train=True, transform=transform_train, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation', path_list=labeled)
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=1)
         # print(type(next(iter(trainloader))))
 
@@ -245,5 +252,5 @@ if __name__ == '__main__':
             train(net, criterion, optimizer, epoch, trainloader)
             test(net, criterion, epoch, cycle)
             scheduler.step()
-        with open(f'./main_best.txt', 'a') as f:
+        with open(parameter_path+f'/main_best.txt', 'a') as f:
             f.write(str(cycle) + ' ' + str(best_acc)+'\n')

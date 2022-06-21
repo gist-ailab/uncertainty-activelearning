@@ -13,7 +13,8 @@ import argparse
 import random
 import numpy as np
 
-from models import *
+# from models import *
+from models.resnet_128 import *
 from loader import Loader, RotationLoader
 from utils import progress_bar
 
@@ -22,9 +23,10 @@ os.environ["CUDA_VISIBLE_DEVICES"]='6'
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
-parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty'
+parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/rotation'
 
 transform_test = transforms.Compose([
+    transforms.Resize([128,128]),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
@@ -78,7 +80,7 @@ def test(epoch):
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
 if __name__ == "__main__":
-    # test(1)
+    test(1)
     with open(parameter_path+'/rotation_loss.txt', 'r') as f:
         losses = f.readlines()
 
@@ -95,8 +97,10 @@ if __name__ == "__main__":
     x.reverse()
     sort_index = np.array(x) # convert to high loss first
 
-    name_dict = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,
-           'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
+    # name_dict = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,
+    #        'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
+    name_dict = {'007_강황':0, '013_분꽃':1, '018_배초향':2, '022_부추':3, '029_백도라지':4,
+           '040_고려엉겅퀴':5, '096_곰보배추':6, '100_도꼬마리':7, '110_흰민들레':8, '120_좀향유':9}
     
     print(sort_index.shape)
     

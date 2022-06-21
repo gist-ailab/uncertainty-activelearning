@@ -13,8 +13,8 @@ import argparse
 import random
 import numpy as np
 
-from models import *
-from loader import Loader, RotationLoader
+from models.resnet_128 import *
+from loader import Loader, OrderPredictionLoader
 from utils import progress_bar
 
 os.environ["CUDA_VISIBLE_DEVICES"]='7'
@@ -22,25 +22,26 @@ os.environ["CUDA_VISIBLE_DEVICES"]='7'
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
-parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty'
+parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/orderprediction'
 
 transform_test = transforms.Compose([
+    transforms.Resize([128,128]),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
-testset = RotationLoader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
+testset = OrderPredictionLoader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
 testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
 
 net = ResNet18()
-net.linear = nn.Linear(512, 4)
+net.linear = nn.Linear(512, 2)
 net = net.to(device)
 
 if device == 'cuda':
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
-checkpoint = torch.load(parameter_path+'/checkpoint/rotation.pth')
+checkpoint = torch.load(parameter_path+'/checkpoint/orderprediction.pth')
 net.load_state_dict(checkpoint['net'])
 
 criterion = nn.CrossEntropyLoss()
@@ -52,18 +53,10 @@ def test(epoch):
     correct = 0
     total = 0
     with torch.no_grad():
-        for batch_idx, (inputs, inputs1, inputs2, inputs3, targets, targets1, targets2, targets3, path) in enumerate(testloader):
-            inputs, inputs1, targets, targets1 = inputs.to(device), inputs1.to(device), targets.to(device), targets1.to(device)
-            inputs2, inputs3, targets2, targets3 = inputs2.to(device), inputs3.to(device), targets2.to(device), targets3.to(device)
+        for batch_idx, (inputs, targets, path) in enumerate(testloader):
+            inputs, targets= inputs.to(device), targets.to(device)
             outputs = net(inputs)
-            outputs1 = net(inputs1)
-            outputs2 = net(inputs2)
-            outputs3 = net(inputs3)
-            loss1 = criterion(outputs, targets)
-            loss2 = criterion(outputs1, targets1)
-            loss3 = criterion(outputs2, targets2)
-            loss4 = criterion(outputs3, targets3)
-            loss = (loss1+loss2+loss3+loss4)/4.
+            loss = criterion(outputs, targets)
             test_loss += loss.item()
             _, predicted = outputs.max(1)
             total += targets.size(0)
@@ -72,14 +65,14 @@ def test(epoch):
             loss = loss.item()
             s = str(float(loss)) + '//' + str(path[0]) + "\n"
 
-            with open(parameter_path+'/rotation_loss.txt', 'a') as f:
+            with open(parameter_path+'/orderprediction_loss.txt', 'a') as f:
                 f.write(s)
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
 if __name__ == "__main__":
-    # test(1)
-    with open(parameter_path+'/rotation_loss.txt', 'r') as f:
+    test(1)
+    with open(parameter_path+'/orderprediction_loss.txt', 'r') as f:
         losses = f.readlines()
 
     loss_1 = []
@@ -95,8 +88,8 @@ if __name__ == "__main__":
     x.reverse()
     sort_index = np.array(x) # convert to high loss first
 
-    name_dict = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,
-           'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
+    name_dict = {'007_강황':0, '013_분꽃':1, '018_배초향':2, '022_부추':3, '029_백도라지':4,
+           '040_고려엉겅퀴':5, '096_곰보배추':6, '100_도꼬마리':7, '110_흰민들레':8, '120_좀향유':9}
     
     print(sort_index.shape)
     
@@ -104,7 +97,7 @@ if __name__ == "__main__":
         os.mkdir('loss')
     for i in range(10):
         # sample minibatch from unlabeled pool 
-        sample5000 = sort_index[i*5000:(i+1)*5000]
+        sample5000 = sort_index[i*900:(i+1)*900]
         # sample1000 = sample5000[[j*5 for j in range(1000)]]
         b = np.zeros(10)
         for jj in sample5000:
