@@ -125,7 +125,7 @@ def test(epoch):
     with open(parameter_path+'/best_orderprediction.txt','a') as f:
         f.write(str(acc)+':'+str(epoch)+'\n')
     if acc > best_acc:
-        print('Saving..')
+        print('Saving...')
         state = {
             'net': net.state_dict(),
             'acc': acc,
