@@ -102,9 +102,10 @@ class General_Loader(Dataset):
         return len(self.img_path)
     
     def __getitem__(self, idx):
+        # print(self.img_path[idx][:-1])
         if self.is_train:
             if self.path_list is None:
-                img = cv2.imread(self.img_path[idx][:-1])
+                img = cv2.imread(self.img_path[idx])
             else:
                 img = cv2.imread(self.img_path[idx][:-1])
         else:
@@ -112,7 +113,6 @@ class General_Loader(Dataset):
                 img = cv2.imread(self.img_path[idx])
             else:
                 img = cv2.imread(self.img_path[idx][:-1])
-                
         img = Image.fromarray(img)
         img = self.transform(img)
         label = self.name_dict[self.img_path[idx].split('/')[-2]]
