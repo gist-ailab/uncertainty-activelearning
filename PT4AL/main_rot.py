@@ -18,7 +18,7 @@ from models.resnet_128 import *
 from loader import Loader, Loader2, General_Loader
 from utils import progress_bar
 
-os.environ["CUDA_VISIBLE_DEVICES"]='7'
+os.environ["CUDA_VISIBLE_DEVICES"]='6'
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -26,7 +26,7 @@ parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 args = parser.parse_args()
 
-parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/orderprediction'
+parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/rotation'
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
@@ -215,7 +215,7 @@ if __name__ == '__main__':
     labeled = []
         
     CYCLES = 10
-    for cycle in range(1,CYCLES):
+    for cycle in range(CYCLES):
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.SGD(net.parameters(), lr=0.1,momentum=0.9, weight_decay=5e-4)
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[160])

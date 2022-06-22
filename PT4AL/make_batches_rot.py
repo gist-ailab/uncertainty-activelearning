@@ -108,7 +108,8 @@ if __name__ == "__main__":
         os.mkdir('loss')
     for i in range(10):
         # sample minibatch from unlabeled pool 
-        sample5000 = sort_index[i*5000:(i+1)*5000]
+        # sample5000 = sort_index[i*5000:(i+1)*5000]
+        sample5000 = sort_index[i*900:(i+1)*900]
         # sample1000 = sample5000[[j*5 for j in range(1000)]]
         b = np.zeros(10)
         for jj in sample5000:
