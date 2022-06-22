@@ -116,8 +116,8 @@ class General_Loader(Dataset):
         img = Image.fromarray(img)
         img = self.transform(img)
         label = self.name_dict[self.img_path[idx].split('/')[-2]]
-
-        return img, label
+        
+        return img, label, self.img_path[idx]
 
 class Loader2(Dataset):
     def __init__(self, is_train=True, transform=None, path='./DATA', path_list=None):

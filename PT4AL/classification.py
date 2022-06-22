@@ -60,7 +60,7 @@ trainset = General_Loader(is_train=True, transform=transform_test, name_dict=cla
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True, num_workers=2)
 
 testset = General_Loader(is_train=True,  transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
-testloader = torch.utils.data.DataLoader(testset, batch_size=16, shuffle=False, num_workers=2)
+testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
 
 # print(next(iter(trainset))[0].shape)
 
@@ -87,7 +87,7 @@ def train(epoch):
     train_loss = 0
     correct = 0
     total = 0
-    for batch_idx, (inputs, targets) in enumerate(trainloader):
+    for batch_idx, (inputs, targets, _ ) in enumerate(trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         outputs = net(inputs)
@@ -112,7 +112,7 @@ def test(epoch):
     correct = 0
     total = 0
     with torch.no_grad():
-        for batch_idx, (inputs, targets, path) in enumerate(testloader):
+        for batch_idx, (inputs, targets, _ ) in enumerate(testloader):
             inputs, targets= inputs.to(device), targets.to(device)
             outputs = net(inputs)
             loss = criterion(outputs, targets)
@@ -123,6 +123,22 @@ def test(epoch):
 
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+    # Save checkpoint.
+    acc = 100.*correct/total
+    with open(parameter_path+'/best_classification.txt','a') as f:
+        f.write(str(acc)+':'+str(epoch)+'\n')
+    if acc > best_acc:
+        print('Saving...')
+        state = {
+            'net': net.state_dict(),
+            'acc': acc,
+            'epoch': epoch,
+        }
+        if not os.path.isdir(parameter_path+'/checkpoint'):
+            os.mkdir(parameter_path+'/checkpoint')
+        # save rotation weights
+        torch.save(state, parameter_path+'/checkpoint/classification.pth')
+        best_acc = acc
 
 def write_loss(epoch):
     global best_acc
@@ -148,27 +164,9 @@ def write_loss(epoch):
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
-    # Save checkpoint.
-    acc = 100.*correct/total
-    with open(parameter_path+'/best_classification.txt','a') as f:
-        f.write(str(acc)+':'+str(epoch)+'\n')
-    if acc > best_acc:
-        print('Saving...')
-        state = {
-            'net': net.state_dict(),
-            'acc': acc,
-            'epoch': epoch,
-        }
-        if not os.path.isdir(parameter_path+'/checkpoint'):
-            os.mkdir(parameter_path+'/checkpoint')
-        # save rotation weights
-        torch.save(state, parameter_path+'/checkpoint/classification.pth')
-        best_acc = acc
-
-
 for epoch in range(start_epoch, start_epoch+121):
     train(epoch)
-    if epoch%10==0:
-        test(epoch)
+    # if epoch%10==0:
+    #     test(epoch)
     scheduler.step()
 write_loss(1)
