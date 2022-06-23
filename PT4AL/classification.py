@@ -166,7 +166,7 @@ def write_loss(epoch):
 
 for epoch in range(start_epoch, start_epoch+121):
     train(epoch)
-    # if epoch%10==0:
-    #     test(epoch)
+    if epoch%10==0 and epoch >= 40:
+        test(epoch)
     scheduler.step()
 write_loss(1)
