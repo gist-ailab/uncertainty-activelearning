@@ -18,7 +18,7 @@ from loader import Loader, OrderPredictionLoader, General_Loader
 from utils import progress_bar
 import numpy as np
 
-os.environ["CUDA_VISIBLE_DEVICES"]='2'
+os.environ["CUDA_VISIBLE_DEVICES"]='7'
 
 parser = argparse.ArgumentParser(description='PyTorch pt4al Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -30,20 +30,31 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
-parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/orderprediction'
+parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/orderprediction'
 
 # Data
 print('==> Preparing data..')
+# transform_train = transforms.Compose([
+#     transforms.Resize([144,144]),
+#     transforms.RandomCrop([128,128]),
+#     transforms.RandomHorizontalFlip(),
+#     transforms.ToTensor(),
+#     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+# ])
+
+# transform_test = transforms.Compose([
+#     transforms.Resize([128,128]),
+#     transforms.ToTensor(),
+#     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+# ])
 transform_train = transforms.Compose([
-    transforms.Resize([144,144]),
-    transforms.RandomCrop([128,128]),
+    transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
 transform_test = transforms.Compose([
-    transforms.Resize([128,128]),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
@@ -51,13 +62,13 @@ transform_test = transforms.Compose([
 # classes = ('plane', 'car', 'bird', 'cat', 'deer',
 #            'dog', 'frog', 'horse', 'ship', 'truck')
 
-# classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
+classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
 
-trainset = OrderPredictionLoader(is_train=True, transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True, num_workers=2)
+trainset = OrderPredictionLoader(is_train=True, transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=1024, shuffle=True, num_workers=2)
 
-testset = OrderPredictionLoader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
-testloader = torch.utils.data.DataLoader(testset, batch_size=16, shuffle=False, num_workers=2)
+testset = OrderPredictionLoader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
+testloader = torch.utils.data.DataLoader(testset, batch_size=1024, shuffle=False, num_workers=2)
 
 print(next(iter(trainset))[0].shape)
 
@@ -138,9 +149,38 @@ def test(epoch):
         torch.save(state, parameter_path+'/checkpoint/orderprediction.pth')
         best_acc = acc
 
+def write_loss(epoch):
+    global best_acc
+    net.eval()
+    test_loss = 0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for batch_idx, (inputs, targets, path) in enumerate(testloader):
+            inputs, targets= inputs.to(device), targets.to(device)
+            outputs = net(inputs)
+            loss = criterion(outputs, targets)
+            test_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+
+            loss = loss.item()
+            s = str(float(loss)) + '//' + str(path[0]) + "\n"
+
+            with open(parameter_path+'/orderprediction_loss.txt', 'a') as f:
+                f.write(s)
+            progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
+                         % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
 for epoch in range(start_epoch, start_epoch+121):
     train(epoch)
-    if epoch%10==0:
-        test(epoch)
+    test(epoch)
     scheduler.step()
+
+testset = OrderPredictionLoader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
+testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
+
+checkpoint = torch.load(parameter_path+'/checkpoint/orderprediction.pth')
+net.load_state_dict(checkpoint['net'])
+write_loss(1)

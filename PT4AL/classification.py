@@ -14,7 +14,7 @@ import random
 
 # from models import *
 from models.resnet_128 import *
-from loader import Loader, OrderPredictionLoader, General_Loader
+from loader import Loader, OrderPredictionLoader, General_Loader_withpath
 from utils import progress_bar
 import numpy as np
 
@@ -30,20 +30,31 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
-parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/classification_loss'
+parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/classification_loss'
 
 # Data
 print('==> Preparing data..')
+# transform_train = transforms.Compose([
+#     transforms.Resize([144,144]),
+#     transforms.RandomCrop([128,128]),
+#     transforms.RandomHorizontalFlip(),
+#     transforms.ToTensor(),
+#     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+# ])
+
+# transform_test = transforms.Compose([
+#     transforms.Resize([128,128]),
+#     transforms.ToTensor(),
+#     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+# ])
 transform_train = transforms.Compose([
-    transforms.Resize([144,144]),
-    transforms.RandomCrop([128,128]),
+    transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
 transform_test = transforms.Compose([
-    transforms.Resize([128,128]),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
@@ -51,16 +62,22 @@ transform_test = transforms.Compose([
 # classes = ('plane', 'car', 'bird', 'cat', 'deer',
 #            'dog', 'frog', 'horse', 'ship', 'truck')
 
-# classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
+classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
 
-classes = {'007_강황':0, '013_분꽃':1, '018_배초향':2, '022_부추':3, '029_백도라지':4,
-           '040_고려엉겅퀴':5, '096_곰보배추':6, '100_도꼬마리':7, '110_흰민들레':8, '120_좀향유':9}
+# classes = {'007_강황':0, '013_분꽃':1, '018_배초향':2, '022_부추':3, '029_백도라지':4,
+#            '040_고려엉겅퀴':5, '096_곰보배추':6, '100_도꼬마리':7, '110_흰민들레':8, '120_좀향유':9}
 
-trainset = General_Loader(is_train=True, transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True, num_workers=2)
+# trainset = General_Loader_withpath(is_train=True, transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
+# trainloader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True, num_workers=2)
 
-testset = General_Loader(is_train=True,  transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
-testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
+# testset = General_Loader_withpath(is_train=True,  transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
+# testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
+
+trainset = General_Loader_withpath(is_train=True, transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=1024, shuffle=True, num_workers=2)
+
+testset = General_Loader_withpath(is_train=True,  transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
+testloader = torch.utils.data.DataLoader(testset, batch_size=1024, shuffle=False, num_workers=2)
 
 # print(next(iter(trainset))[0].shape)
 
@@ -166,7 +183,12 @@ def write_loss(epoch):
 
 for epoch in range(start_epoch, start_epoch+121):
     train(epoch)
-    if epoch%10==0 and epoch >= 40:
-        test(epoch)
+    test(epoch)
     scheduler.step()
+
+testset = General_Loader_withpath(is_train=True,  transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
+testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
+
+checkpoint = torch.load(parameter_path+'/checkpoint/classification.pth')
+net.load_state_dict(checkpoint['net'])
 write_loss(1)

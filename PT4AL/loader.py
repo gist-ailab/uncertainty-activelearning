@@ -119,6 +119,44 @@ class General_Loader(Dataset):
         
         return img, label
 
+class General_Loader_withpath(Dataset):
+    def __init__(self, is_train=True, transform=None, name_dict = None, path='./DATA', path_list=None):
+        self.is_train = is_train
+        self.transform = transform
+        self.path_list = path_list
+        self.name_dict = name_dict
+        
+        if self.is_train:
+            if path_list is None:
+                self.img_path = glob.glob(path+'/train/*/*')
+            else:
+                self.img_path = path_list
+        else:
+            if path_list is None:
+                self.img_path = glob.glob(path+'/test/*/*')
+            else:
+                self.img_path = path_list
+    def __len__(self):
+        return len(self.img_path)
+    
+    def __getitem__(self, idx):
+        # print(self.img_path[idx][:-1])
+        if self.is_train:
+            if self.path_list is None:
+                img = cv2.imread(self.img_path[idx])
+            else:
+                img = cv2.imread(self.img_path[idx][:-1])
+        else:
+            if self.path_list is None:
+                img = cv2.imread(self.img_path[idx])
+            else:
+                img = cv2.imread(self.img_path[idx][:-1])
+        img = Image.fromarray(img)
+        img = self.transform(img)
+        label = self.name_dict[self.img_path[idx].split('/')[-2]]
+        
+        return img, label, self.img_path[idx]
+
 class Loader2(Dataset):
     def __init__(self, is_train=True, transform=None, path='./DATA', path_list=None):
         self.is_train = is_train

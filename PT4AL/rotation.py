@@ -30,20 +30,31 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
-parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/rotation'
+parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/rotation'
 
 # Data
 print('==> Preparing data..')
+# transform_train = transforms.Compose([
+#     transforms.Resize([144,144]),
+#     transforms.RandomCrop([128,128]),
+#     transforms.RandomHorizontalFlip(),
+#     transforms.ToTensor(),
+#     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+# ])
+
+# transform_test = transforms.Compose([
+#     transforms.Resize([128,128]),
+#     transforms.ToTensor(),
+#     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+# ])
 transform_train = transforms.Compose([
-    transforms.Resize([144,144]),
-    transforms.RandomCrop([128,128]),
+    transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
 transform_test = transforms.Compose([
-    transforms.Resize([128,128]),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
@@ -51,13 +62,13 @@ transform_test = transforms.Compose([
 # classes = ('plane', 'car', 'bird', 'cat', 'deer',
 #            'dog', 'frog', 'horse', 'ship', 'truck')
 
-# classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
+classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
 
-trainset = RotationLoader(is_train=True, transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=32, shuffle=True, num_workers=2)
+trainset = RotationLoader(is_train=True, transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=512, shuffle=True, num_workers=2)
 
-testset = RotationLoader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
-testloader = torch.utils.data.DataLoader(testset, batch_size=32, shuffle=False, num_workers=2)
+testset = RotationLoader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
+testloader = torch.utils.data.DataLoader(testset, batch_size=512, shuffle=False, num_workers=2)
 
 print(next(iter(trainset))[0].shape)
 
@@ -165,9 +176,46 @@ def test(epoch):
         torch.save(state, parameter_path+'/checkpoint/rotation.pth')
         best_acc = acc
 
+def write_loss(epoch):
+    global best_acc
+    net.eval()
+    test_loss = 0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for batch_idx, (inputs, inputs1, inputs2, inputs3, targets, targets1, targets2, targets3, path) in enumerate(testloader):
+            inputs, inputs1, targets, targets1 = inputs.to(device), inputs1.to(device), targets.to(device), targets1.to(device)
+            inputs2, inputs3, targets2, targets3 = inputs2.to(device), inputs3.to(device), targets2.to(device), targets3.to(device)
+            outputs = net(inputs)
+            outputs1 = net(inputs1)
+            outputs2 = net(inputs2)
+            outputs3 = net(inputs3)
+            loss1 = criterion(outputs, targets)
+            loss2 = criterion(outputs1, targets1)
+            loss3 = criterion(outputs2, targets2)
+            loss4 = criterion(outputs3, targets3)
+            loss = (loss1+loss2+loss3+loss4)/4.
+            test_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+
+            loss = loss.item()
+            s = str(float(loss)) + '//' + str(path[0]) + "\n"
+
+            with open(parameter_path+'/rotation_loss.txt', 'a') as f:
+                f.write(s)
+            progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
+                         % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
 for epoch in range(start_epoch, start_epoch+121):
     train(epoch)
-    if epoch%10 == 0:
-        test(epoch)
+    test(epoch)
     scheduler.step()
+
+testset = RotationLoader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
+testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
+
+checkpoint = torch.load(parameter_path+'/checkpoint/rotation.pth')
+net.load_state_dict(checkpoint['net'])
+write_loss(1)
