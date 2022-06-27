@@ -23,7 +23,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]='6'
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
-parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/rotation'
+parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/rotation'
 
 transform_test = transforms.Compose([
     transforms.Resize([128,128]),
@@ -80,7 +80,7 @@ def test(epoch):
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
 if __name__ == "__main__":
-    test(1)
+    # test(1)
     with open(parameter_path+'/rotation_loss.txt', 'r') as f:
         losses = f.readlines()
 
@@ -97,10 +97,10 @@ if __name__ == "__main__":
     x.reverse()
     sort_index = np.array(x) # convert to high loss first
 
-    # name_dict = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,
-    #        'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
-    name_dict = {'007_강황':0, '013_분꽃':1, '018_배초향':2, '022_부추':3, '029_백도라지':4,
-           '040_고려엉겅퀴':5, '096_곰보배추':6, '100_도꼬마리':7, '110_흰민들레':8, '120_좀향유':9}
+    name_dict = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,
+           'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
+    # name_dict = {'007_강황':0, '013_분꽃':1, '018_배초향':2, '022_부추':3, '029_백도라지':4,
+    #        '040_고려엉겅퀴':5, '096_곰보배추':6, '100_도꼬마리':7, '110_흰민들레':8, '120_좀향유':9}
     
     print(sort_index.shape)
     
@@ -108,8 +108,8 @@ if __name__ == "__main__":
         os.mkdir('loss')
     for i in range(10):
         # sample minibatch from unlabeled pool 
-        # sample5000 = sort_index[i*5000:(i+1)*5000]
-        sample5000 = sort_index[i*900:(i+1)*900]
+        sample5000 = sort_index[i*5000:(i+1)*5000]
+        # sample5000 = sort_index[i*900:(i+1)*900]
         # sample1000 = sample5000[[j*5 for j in range(1000)]]
         b = np.zeros(10)
         for jj in sample5000:

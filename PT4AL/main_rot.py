@@ -26,7 +26,9 @@ parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 args = parser.parse_args()
 
-parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/rotation'
+parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/rotation'
+# data_path = '/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation'
+data_path = '/home/hinton/NAS_AIlab_dataset/dataset/cifar10'
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
@@ -34,23 +36,39 @@ start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
 # Data
 print('==> Preparing data..')
+# transform_train = transforms.Compose([
+#     transforms.Resize([144,144]),
+#     transforms.RandomCrop([128,128]),
+#     transforms.RandomHorizontalFlip(),
+#     transforms.ToTensor(),
+#     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+# ])
+
+# transform_test = transforms.Compose([
+#     transforms.Resize([128,128]),
+#     transforms.ToTensor(),
+#     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+# ])
+
 transform_train = transforms.Compose([
-    transforms.Resize([144,144]),
-    transforms.RandomCrop([128,128]),
+    transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
 transform_test = transforms.Compose([
-    transforms.Resize([128,128]),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
-classes = {'007_강황':0, '013_분꽃':1, '018_배초향':2, '022_부추':3, '029_백도라지':4,
-           '040_고려엉겅퀴':5, '096_곰보배추':6, '100_도꼬마리':7, '110_흰민들레':8, '120_좀향유':9}
 
-testset = General_Loader(is_train=False,  transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
+# classes = {'007_강황':0, '013_분꽃':1, '018_배초향':2, '022_부추':3, '029_백도라지':4,
+#            '040_고려엉겅퀴':5, '096_곰보배추':6, '100_도꼬마리':7, '110_흰민들레':8, '120_좀향유':9}
+
+classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,
+           'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
+
+testset = General_Loader(is_train=False,  transform=transform_test, name_dict=classes, path=data_path)
 testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
 
 # classes = ('plane', 'car', 'bird', 'cat', 'deer',
@@ -128,7 +146,7 @@ def get_plabels(net, samples, cycle):
     class_dict = {}
     [class_dict.setdefault(x,[]) for x in range(10)]
 
-    sub5k = General_Loader(is_train=False,  transform=transform_test, name_dict=classes, path = '/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation',path_list=samples)
+    sub5k = General_Loader(is_train=False,  transform=transform_test, name_dict=classes, path = data_path,path_list=samples)
     ploader = torch.utils.data.DataLoader(sub5k, batch_size=1, shuffle=False, num_workers=2)
 
     # overflow goes into remaining
@@ -166,7 +184,7 @@ def get_plabels2(net, samples, cycle):
     [class_dict.setdefault(x,[]) for x in range(10)]
 
     sample1k = []
-    sub5k = General_Loader(is_train=False,  transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation',path_list=samples)
+    sub5k = General_Loader(is_train=False,  transform=transform_test, name_dict=classes, path=data_path,path_list=samples)
     ploader = torch.utils.data.DataLoader(sub5k, batch_size=1, shuffle=False, num_workers=2)
 
     top1_scores = []
@@ -188,7 +206,7 @@ def get_plabels2(net, samples, cycle):
 # entropy sampling
 def get_plabels3(net, samples, cycle):
     sample1k = []
-    sub5k = General_Loader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation', path_list=samples)
+    sub5k = General_Loader(is_train=False,  transform=transform_test, path=data_path, path_list=samples)
     ploader = torch.utils.data.DataLoader(sub5k, batch_size=1, shuffle=False, num_workers=2)
 
     top1_scores = []
@@ -239,12 +257,12 @@ if __name__ == '__main__':
         else:
             # first iteration: sample 1k at even intervals
             samples = np.array(samples)
-            # sample1k = samples[[j*5 for j in range(1000)]]
-            sample1k = samples[[j for j in range(900)]]
+            sample1k = samples[[j*5 for j in range(1000)]]
+            # sample1k = samples[[j for j in range(900)]]
         # add 1k samples to labeled set
         labeled.extend(sample1k)
         print(f'>> Labeled length: {len(labeled)}')
-        trainset = General_Loader(is_train=True, transform=transform_train, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation', path_list=labeled)
+        trainset = General_Loader(is_train=True, transform=transform_train, name_dict=classes, path=data_path, path_list=labeled)
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=1)
         # print(type(next(iter(trainloader))))
 
