@@ -1,6 +1,6 @@
 import random
 
-random.seed(20220622)
+random.seed(20220629)
 
 dep_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/rotation'
 dest_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/random'
@@ -16,7 +16,7 @@ random.shuffle(img_paths)
 
 for i in range(10):
     f = open(dest_path+f'/loss/batch_{i}.txt', 'w')
-    for j in range(900):
+    for j in range(5000):
         
         path = img_paths.pop()
         f.write(path)
