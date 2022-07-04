@@ -18,7 +18,7 @@ from models.resnet_128 import *
 from loader import Loader, Loader2, General_Loader
 from utils import progress_bar
 
-os.environ["CUDA_VISIBLE_DEVICES"]='5'
+os.environ["CUDA_VISIBLE_DEVICES"]='4'
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -26,9 +26,10 @@ parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 args = parser.parse_args()
 
-parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/rotation'
+server_name = 'lecun'
+parameter_path = f'/home/{server_name}/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/rotation'
 # data_path = '/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation'
-data_path = '/home/hinton/NAS_AIlab_dataset/dataset/cifar10'
+data_path = f'/home/{server_name}/NAS_AIlab_dataset/dataset/cifar10'
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
@@ -184,8 +185,9 @@ def get_plabels2(net, samples, cycle):
     [class_dict.setdefault(x,[]) for x in range(10)]
 
     sample1k = []
-    sub5k = General_Loader(is_train=False,  transform=transform_test, name_dict=classes, path=data_path,path_list=samples)
-    ploader = torch.utils.data.DataLoader(sub5k, batch_size=1, shuffle=False, num_workers=2)
+    sub5k = General_Loader(is_train=False,  transform=transform_test, name_dict=classes, path=data_path, path_list=samples)
+    ploader = torch.utils.data.DataLoader(sub5k, batch_size=1, shuffle=False, num_workers=0)
+    print(ploader)
 
     top1_scores = []
     net.eval()
@@ -229,11 +231,23 @@ def get_classdist(samples):
         class_dist[label] += 1
     return class_dist
 
+# def resume(epoch):
+#     labeled = []
+#     if epoch!=0:
+#         for i in range(epoch):
+#             batch = open(parameter_path+f'/loss/batch_{i}.txt', 'r')
+#             batch = batch.readlines()
+#             labeled.extend(np.array(batch))
+#     print(len(labeled))
+#     return labeled
+
 if __name__ == '__main__':
     labeled = []
         
     CYCLES = 10
-    for cycle in range(CYCLES):
+    start_epoch = 0
+    # labeled = resume(start_epoch)
+    for cycle in range(start_epoch, CYCLES):
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.SGD(net.parameters(), lr=0.1,momentum=0.9, weight_decay=5e-4)
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[160])

@@ -176,7 +176,7 @@ def write_loss(epoch):
             loss = loss.item()
             s = str(float(loss)) + '//' + str(path[0]) + "\n"
 
-            with open(parameter_path+'/classification_loss.txt', 'a') as f:
+            with open(parameter_path+'/test_classification_loss.txt', 'a') as f:
                 f.write(s)
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
@@ -186,7 +186,7 @@ for epoch in range(start_epoch, start_epoch+121):
     test(epoch)
     scheduler.step()
 
-testset = General_Loader_withpath(is_train=True,  transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
+testset = General_Loader_withpath(is_train=2,  transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
 testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
 
 checkpoint = torch.load(parameter_path+'/checkpoint/classification.pth')

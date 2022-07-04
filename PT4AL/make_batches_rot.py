@@ -18,12 +18,14 @@ from models.resnet_128 import *
 from loader import Loader, RotationLoader
 from utils import progress_bar
 
-os.environ["CUDA_VISIBLE_DEVICES"]='6'
+os.environ["CUDA_VISIBLE_DEVICES"]='4'
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
-parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/rotation'
+server_name = 'bengio'
+parameter_path = f'/home/{server_name}/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/rotation'
+data_path = f'/home/{server_name}/NAS_AIlab_dataset/dataset/cifar10'
 
 transform_test = transforms.Compose([
     transforms.Resize([128,128]),
@@ -31,7 +33,7 @@ transform_test = transforms.Compose([
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
-testset = RotationLoader(is_train=False,  transform=transform_test, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
+testset = RotationLoader(is_train=False,  transform=transform_test, path=data_path)
 testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
 
 net = ResNet18()
@@ -108,7 +110,7 @@ if __name__ == "__main__":
         os.mkdir('loss')
     for i in range(10):
         # sample minibatch from unlabeled pool 
-        sample5000 = sort_index[i*1000:(i+1)*1000]
+        sample5000 = sort_index[i*5000:(i+1)*5000]
         # sample5000 = sort_index[i*900:(i+1)*900]
         # sample1000 = sample5000[[j*5 for j in range(1000)]]
         b = np.zeros(10)
