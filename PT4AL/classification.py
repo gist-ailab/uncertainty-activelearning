@@ -18,7 +18,7 @@ from loader import Loader, OrderPredictionLoader, General_Loader_withpath
 from utils import progress_bar
 import numpy as np
 
-os.environ["CUDA_VISIBLE_DEVICES"]='5'
+os.environ["CUDA_VISIBLE_DEVICES"]='7'
 
 parser = argparse.ArgumentParser(description='PyTorch pt4al Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -30,7 +30,9 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
-parameter_path = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/classification_loss'
+server_name = 'hinton'
+parameter_path = f'/home/{server_name}/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/classification_loss'
+data_path = f'/home/{server_name}/NAS_AIlab_dataset/dataset/cifar10'
 
 # Data
 print('==> Preparing data..')
@@ -73,11 +75,11 @@ classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,'dog':5, 'f
 # testset = General_Loader_withpath(is_train=True,  transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/NIA_AIhub/herb_rotation')
 # testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
 
-trainset = General_Loader_withpath(is_train=True, transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=1024, shuffle=True, num_workers=2)
+trainset = General_Loader_withpath(is_train=True, transform=transform_test, name_dict=classes, path=data_path)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=1024, shuffle=True, num_workers=16)
 
-testset = General_Loader_withpath(is_train=True,  transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
-testloader = torch.utils.data.DataLoader(testset, batch_size=1024, shuffle=False, num_workers=2)
+testset = General_Loader_withpath(is_train=True,  transform=transform_test, name_dict=classes, path=data_path)
+testloader = torch.utils.data.DataLoader(testset, batch_size=1024, shuffle=False, num_workers=16)
 
 # print(next(iter(trainset))[0].shape)
 
@@ -181,13 +183,13 @@ def write_loss(epoch):
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
-for epoch in range(start_epoch, start_epoch+121):
+for epoch in range(start_epoch, start_epoch+41):
     train(epoch)
     test(epoch)
     scheduler.step()
 
-testset = General_Loader_withpath(is_train=2,  transform=transform_test, name_dict=classes, path='/home/hinton/NAS_AIlab_dataset/dataset/cifar10')
-testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
+testset = General_Loader_withpath(is_train=False,  transform=transform_test, name_dict=classes, path=data_path)
+testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=16)
 
 checkpoint = torch.load(parameter_path+'/checkpoint/classification.pth')
 net.load_state_dict(checkpoint['net'])

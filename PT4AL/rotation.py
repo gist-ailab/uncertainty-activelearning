@@ -30,7 +30,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
-server_name = 'bengio'
+server_name = 'hinton'
 parameter_path = f'/home/{server_name}/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/rotation'
 data_path = f'/home/{server_name}/NAS_AIlab_dataset/dataset/cifar10'
 
@@ -67,10 +67,10 @@ transform_test = transforms.Compose([
 classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
 
 trainset = RotationLoader(is_train=True, transform=transform_test, path=data_path)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=512, shuffle=True, num_workers=2)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=256, shuffle=True, num_workers=16)
 
 testset = RotationLoader(is_train=False,  transform=transform_test, path=data_path)
-testloader = torch.utils.data.DataLoader(testset, batch_size=512, shuffle=False, num_workers=2)
+testloader = torch.utils.data.DataLoader(testset, batch_size=256, shuffle=False, num_workers=16)
 
 print(next(iter(trainset))[0].shape)
 
@@ -210,13 +210,13 @@ def write_loss(epoch):
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
-for epoch in range(start_epoch, start_epoch+121):
+for epoch in range(start_epoch, start_epoch+41):
     train(epoch)
     test(epoch)
     scheduler.step()
 
 testset = RotationLoader(is_train=2,  transform=transform_test, path=data_path)
-testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
+testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=16)
 
 checkpoint = torch.load(parameter_path+'/checkpoint/rotation.pth')
 net.load_state_dict(checkpoint['net'])

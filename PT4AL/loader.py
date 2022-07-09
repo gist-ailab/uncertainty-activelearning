@@ -64,7 +64,7 @@ class RotationLoader(Dataset):
         img = cv2.imread(self.img_path[idx])
         img = Image.fromarray(img)
 
-        if self.is_train:
+        if self.is_train==1:
             img = self.transform(img)
             img1 = torch.rot90(img, 1, [1,2])
             img2 = torch.rot90(img, 2, [1,2])

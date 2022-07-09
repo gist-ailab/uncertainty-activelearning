@@ -18,12 +18,12 @@ from models.resnet_128 import *
 from loader import Loader, RotationLoader
 from utils import progress_bar
 
-os.environ["CUDA_VISIBLE_DEVICES"]='4'
+os.environ["CUDA_VISIBLE_DEVICES"]='0'
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
-server_name = 'bengio'
+server_name = 'lecun'
 parameter_path = f'/home/{server_name}/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/rotation'
 data_path = f'/home/{server_name}/NAS_AIlab_dataset/dataset/cifar10'
 
@@ -44,8 +44,8 @@ if device == 'cuda':
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
-checkpoint = torch.load(parameter_path+'/checkpoint/rotation.pth')
-net.load_state_dict(checkpoint['net'])
+# checkpoint = torch.load(parameter_path+'/checkpoint/rotation.pth')
+# net.load_state_dict(checkpoint['net'])
 
 criterion = nn.CrossEntropyLoss()
 
