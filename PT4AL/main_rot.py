@@ -26,7 +26,7 @@ parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 args = parser.parse_args()
 
-server_name = 'lecun'
+server_name = 'hinton'
 parameter_path = f'/home/{server_name}/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/rotation'
 data_path = f'/home/{server_name}/NAS_AIlab_dataset/dataset/cifar10'
 
@@ -69,7 +69,7 @@ classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,
            'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
 
 testset = General_Loader(is_train=False,  transform=transform_test, name_dict=classes, path=data_path)
-testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
+testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=32)
 
 # classes = ('plane', 'car', 'bird', 'cat', 'deer',
 #            'dog', 'frog', 'horse', 'ship', 'truck')
@@ -277,7 +277,7 @@ if __name__ == '__main__':
         labeled.extend(sample1k)
         print(f'>> Labeled length: {len(labeled)}')
         trainset = General_Loader(is_train=True, transform=transform_train, name_dict=classes, path=data_path, path_list=labeled)
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=1)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=16)
         # print(type(next(iter(trainloader))))
 
         for epoch in range(200):

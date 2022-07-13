@@ -13,12 +13,12 @@ import argparse
 import random
 
 # from models import *
-from models.resnet_128 import *
+from models.resnet import *
 from loader import Loader, RotationLoader, General_Loader
 from utils import progress_bar
 import numpy as np
 
-os.environ["CUDA_VISIBLE_DEVICES"]='6'
+os.environ["CUDA_VISIBLE_DEVICES"]='4'
 
 parser = argparse.ArgumentParser(description='PyTorch pt4al Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -70,9 +70,9 @@ trainset = RotationLoader(is_train=True, transform=transform_test, path=data_pat
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=256, shuffle=True, num_workers=16)
 
 testset = RotationLoader(is_train=False,  transform=transform_test, path=data_path)
-testloader = torch.utils.data.DataLoader(testset, batch_size=256, shuffle=False, num_workers=16)
+testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=16)
 
-print(next(iter(trainset))[0].shape)
+# print(next(iter(trainset))[0].shape)
 
 # Model
 print('==> Building model..')
@@ -205,17 +205,17 @@ def write_loss(epoch):
             loss = loss.item()
             s = str(float(loss)) + '//' + str(path[0]) + "\n"
 
-            with open(parameter_path+'/test_rotation_loss.txt', 'a') as f:
+            with open(parameter_path+'/rotation_loss.txt', 'a') as f:
                 f.write(s)
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
-for epoch in range(start_epoch, start_epoch+41):
+for epoch in range(start_epoch, start_epoch+121):
     train(epoch)
     test(epoch)
     scheduler.step()
 
-testset = RotationLoader(is_train=2,  transform=transform_test, path=data_path)
+testset = RotationLoader(is_train=False,  transform=transform_test, path=data_path)
 testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=16)
 
 checkpoint = torch.load(parameter_path+'/checkpoint/rotation.pth')
