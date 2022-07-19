@@ -14,7 +14,7 @@ import random
 import numpy as np
 
 # from models import *
-from models.resnet_128 import *
+from models.resnet import *
 from loader import Loader, RotationLoader
 from utils import progress_bar
 
@@ -82,7 +82,7 @@ def test(epoch):
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
 if __name__ == "__main__":
-    test(1)
+    # test(1)
     with open(parameter_path+'/rotation_loss.txt', 'r') as f:
         losses = f.readlines()
 

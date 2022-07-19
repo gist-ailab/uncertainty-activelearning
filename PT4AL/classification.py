@@ -18,7 +18,7 @@ from loader import Loader, OrderPredictionLoader, General_Loader_withpath
 from utils import progress_bar
 import numpy as np
 
-os.environ["CUDA_VISIBLE_DEVICES"]='7'
+os.environ["CUDA_VISIBLE_DEVICES"]='6'
 
 parser = argparse.ArgumentParser(description='PyTorch pt4al Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -176,17 +176,17 @@ def write_loss(epoch):
             correct += predicted.eq(targets).sum().item()
 
             loss = loss.item()
-            s = str(float(loss)) + '//' + str(path[0]) + "\n"
+            s = str(float(loss)) + '//' + str(path[0]) +'//' + str(float(predicted.eq(targets).sum().item())) + "\n"
 
             with open(parameter_path+'/test_classification_loss.txt', 'a') as f:
                 f.write(s)
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
-for epoch in range(start_epoch, start_epoch+41):
-    train(epoch)
-    test(epoch)
-    scheduler.step()
+# for epoch in range(start_epoch, start_epoch+121):
+#     train(epoch)
+#     test(epoch)
+#     scheduler.step()
 
 testset = General_Loader_withpath(is_train=False,  transform=transform_test, name_dict=classes, path=data_path)
 testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=16)

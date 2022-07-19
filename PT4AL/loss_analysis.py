@@ -14,14 +14,14 @@ from utils import progress_bar
 import os
 from sklearn.metrics import pairwise_distances
 
-os.environ["CUDA_VISIBLE_DEVICES"]='4'
+os.environ["CUDA_VISIBLE_DEVICES"]='4,6'
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
 server_name = 'hinton'
-parameter_path = f'/home/{server_name}/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/loss_analysis'
+parameter_path = f'/home/{server_name}/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/classification_loss'
 data_path = f'/home/{server_name}/NAS_AIlab_dataset/dataset/cifar10'
 
 classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
@@ -52,7 +52,11 @@ transform_test = transforms.Compose([
 ])
 
 traindata = open('/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/random/loss/batch_0.txt', 'r').readlines()
-traindata = [traindata[5*i] for i in range(len(traindata)//5)]
+# traindata2 = open('/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/random/loss/batch_1.txt', 'r').readlines()
+# traindata3 = open('/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/random/loss/batch_2.txt', 'r').readlines()
+# traindata4 = open('/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/random/loss/batch_3.txt', 'r').readlines()
+traindata = [traindata[i] for i in range(len(traindata))]
+# traindata = traindata + traindata2 + traindata3 + traindata4
 
 trainset = General_Loader_withpath(is_train=True,  transform=transform_train, name_dict=classes, path=data_path, path_list=traindata)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=250, shuffle=True, num_workers=32)
@@ -133,24 +137,32 @@ def loss_confidence_distance(train_feature):
                 feature = feature.cpu()
                 distance = np.min(pairwise_distances(feature, train_feature))
                 # distance = len(trainloader)
-                s = str(float(loss)) + '//' + str(float(confidence)) + '//' + str(float(distance)) + '//' + str(path[0]) + "\n"
+                s = str(float(loss)) + '//' + str(float(confidence)) + '//' + str(float(distance)) +'//' + str(float(predicted.eq(targets).sum().item())) + '//' + str(path[0]) + "\n"
                 
                 f.write(s)
                 progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                             % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
 def get_train_vector():
-    train_feature = torch.empty((len(trainloader), 512))
+    if len(traindata) >= 2500:
+        n = len(traindata)//2500
+    else: n = 1
+    train_feature = torch.empty((len(trainloader)//n, 512))
+    train_feature = train_feature.to(device)
     for train_idx, (inputs, _, _) in enumerate(trainloader):
-        inputs = inputs.to(device)
-        _, feature = net(inputs)
-        train_feature[train_idx] = feature
+        if train_idx%n==0:
+            inputs = inputs.to(device)
+            _, feature = net(inputs)
+            train_feature[train_idx//n] = feature
     return train_feature
 
+print(len(trainloader))
 best_acc = 0
-# for i in range(120):
-#     train(i)
+for i in range(120):
+    train(i)
 
+# path2 = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/classification_loss/checkpoint/classification.pth'
+# checkpoint = torch.load(path2)
 checkpoint = torch.load(parameter_path+'/checkpoint/classification.pth')
 net.load_state_dict(checkpoint['net'])
 

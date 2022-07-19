@@ -18,7 +18,7 @@ from models.resnet_128 import *
 from loader import Loader, Loader2, General_Loader
 from utils import progress_bar
 
-os.environ["CUDA_VISIBLE_DEVICES"]='4'
+os.environ["CUDA_VISIBLE_DEVICES"]='4,6'
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
