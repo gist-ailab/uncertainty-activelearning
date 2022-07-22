@@ -26,7 +26,7 @@ parser.add_argument('--resume', '-r', action='store_true', help='resume from che
 args = parser.parse_args()
 
 server_name = 'hinton'
-parameter_path = f'/home/{server_name}/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/h2lal/cifar10'
+parameter_path = f'/home/{server_name}/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/h2lal/cifar10/random'
 data_path = f'/home/{server_name}/NAS_AIlab_dataset/dataset/cifar10'
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'

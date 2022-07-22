@@ -26,7 +26,7 @@ parser.add_argument('--resume', '-r', action='store_true', help='resume from che
 args = parser.parse_args()
 
 server_name = 'hinton'
-parameter_path = f'/home/{server_name}/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/h2lal/cifar10'
+parameter_path = f'/home/{server_name}/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/h2lal/cifar10/h2l'
 data_path = f'/home/{server_name}/NAS_AIlab_dataset/dataset/cifar10'
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -121,16 +121,17 @@ def make_unlabeled(data_path):
     img_path = glob.glob(data_path+'/train/*/*')
     return img_path
 
-# make sorted confidence list, conf : [(conf, path)]
+# make sorted confidence list, conf : [(conf, path)]b
 def make_conflist(net, unlabel_loader):
     confidence_list = []
     with torch.no_grad():
-        for _, (inputs, _, path) in enumerate(unlabel_loader):
+        for batch_idx, (inputs, _, path) in enumerate(unlabel_loader):
             inputs = inputs.to(device)
             outputs = net(inputs)
             confidence = torch.max(F.softmax(outputs, dim=-1))
-            confidence_list.append((confidence, path))
-    confidence_list.sort(key=lambda x:x[0])
+            confidence_list.append((float(confidence), path[0]))
+            progress_bar(batch_idx, len(unlabel_loader))
+    confidence_list.sort(key=lambda x:x[0], reverse=True)
     return confidence_list
 
 # Select K datas for Active Learning
@@ -157,20 +158,31 @@ if __name__ == '__main__':
 
         if epi == 0:# init_stage
             subset = random.sample(unlabeled, subset_size)
-            labeled.extend(subset[:init_data_num])
+            selected_data = subset[:init_data_num]
+            labeled.extend(selected_data)
             # remove labeled data from unlabeled data
-            for data in labeled:
+            for data in selected_data:
                 unlabeled.pop(unlabeled.index(data))
+            print("Unlabeled", len(unlabeled))
             # make train loader
             trainset = General_Loader(is_train=True, transform=transform_train, name_dict=classes, path=data_path, path_list=labeled)
             trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=16)
         else:
             checkpoint = torch.load(parameter_path+f'/checkpoint/main_{epi-1}.pth')
             net.load_state_dict(checkpoint['net'])
+            
+            subset = random.sample(unlabeled, subset_size)
+            unlblset = General_Loader_withpath(is_train=True, transform=transform_train, name_dict=classes, path=data_path, path_list=subset)
+            unlbloader = torch.utils.data.DataLoader(unlblset, batch_size=1, shuffle=False, num_workers=16)
+
+            confidence_list = make_conflist(net,unlbloader)
+            print('Max conf ', confidence_list[0][0], " Min conf ", confidence_list[-1][0])
+            selected_data = k_selection(confidence_list, epi)
 
             labeled.extend(selected_data)
             for data in selected_data:
                 unlabeled.pop(unlabeled.index(data))
+            print("Unlabeled ", len(unlabeled))
             trainset = General_Loader(is_train=True, transform=transform_train, name_dict=classes, path=data_path, path_list=labeled)
             trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=16)
 
@@ -180,13 +192,3 @@ if __name__ == '__main__':
             scheduler.step()
         with open(parameter_path+f'/main_best.txt', 'a') as f:
             f.write(str(epi) + ' ' + str(best_acc)+'\n')
-
-
-        subset = random.sample(unlabeled, subset_size)
-        unlblset = General_Loader_withpath(is_train=True, transform=transform_train, name_dict=classes, path=data_path, path_list=subset)
-        unlbloader = torch.utils.data.DataLoader(unlblset, batch_size=100, shuffle=False, num_workers=16)
-
-        confidence_list = make_conflist(net,unlbloader)
-        selected_data = k_selection(confidence_list, epi)
-        print(confidence_list[:3])
-        print(selected_data[:3])
