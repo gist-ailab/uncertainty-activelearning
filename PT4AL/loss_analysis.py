@@ -66,7 +66,7 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, n
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
-scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30, 60, 90])
+scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[160])
 
 def train(epoch):
     global best_acc
@@ -158,8 +158,9 @@ def get_train_vector():
 
 print(len(trainloader))
 best_acc = 0
-for i in range(120):
+for i in range(200):
     train(i)
+    scheduler.step()
 
 # path2 = '/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/pt4al/cifar10/classification_loss/checkpoint/classification.pth'
 # checkpoint = torch.load(path2)
