@@ -18,7 +18,7 @@ from models.resnet_128 import *
 from loader import General_Loader_withpath, Loader, Loader2, General_Loader
 from util import progress_bar
 
-os.environ["CUDA_VISIBLE_DEVICES"]='6,7'
+os.environ["CUDA_VISIBLE_DEVICES"]='6'
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -49,7 +49,7 @@ classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,
            'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
 
 testset = General_Loader(is_train=False,  transform=transform_test, name_dict=classes, path=data_path)
-testloader = torch.utils.data.DataLoader(testset, batch_size=500, shuffle=False, num_workers=32)
+testloader = torch.utils.data.DataLoader(testset, batch_size=500, shuffle=False)
 
 print('==> Building model..')
 net = ResNet18()
@@ -70,6 +70,10 @@ def train(net, criterion, optimizer, epoch, trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         outputs = net(inputs)
+
+        if epoch==0:
+            outputs = outputs/10
+
         loss = criterion(outputs, targets)
         loss.backward()
         optimizer.step()
@@ -128,16 +132,17 @@ def make_conflist(net, unlabel_loader):
         for batch_idx, (inputs, _, path) in enumerate(unlabel_loader):
             inputs = inputs.to(device)
             outputs = net(inputs)
-            confidence = torch.max(F.softmax(outputs, dim=-1))
+            confidence = torch.max(F.softmax(outputs/10, dim=-1))
             confidence_list.append((float(confidence), path[0]))
             progress_bar(batch_idx, len(unlabel_loader))
-    confidence_list.sort(key=lambda x:x[0], reverse=True)
+    #least confidence
+    confidence_list.sort(key=lambda x:x[0], reverse=False)
     return confidence_list
 
 # Select K datas for Active Learning
 def k_selection(confidence_list, epi, k=1000):
     n = len(confidence_list)//(10-1)
-    target_data = confidence_list[n*epi:n*(epi+1)]
+    target_data = confidence_list[n*(epi-1):n*epi]
     return [target_data[i][1] for i in range(k)]
 
 if __name__ == '__main__':
@@ -152,13 +157,20 @@ if __name__ == '__main__':
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.SGD(net.parameters(), lr=0.1,momentum=0.9, weight_decay=5e-4)
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[160])
+        # if epi < 5:
+        #     optimizer = optim.SGD(net.parameters(), lr=0.1,momentum=0.9, weight_decay=5e-4)
+        #     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[160])
+        # else:
+        #     optimizer = optim.SGD(net.parameters(), lr=0.1,momentum=0.9, weight_decay=5e-4)
+        #     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[160])
 
         best_acc = 0
-        print('Episode ', epi+1)
+        print('\nEpisode ', epi+1)
 
         if epi == 0:# init_stage
             subset = random.sample(unlabeled, subset_size)
             selected_data = subset[:init_data_num]
+            # selected_data = random.sample(unlabeled, init_data_num)
             labeled.extend(selected_data)
             # remove labeled data from unlabeled data
             for data in selected_data:
@@ -166,14 +178,15 @@ if __name__ == '__main__':
             print("Unlabeled", len(unlabeled))
             # make train loader
             trainset = General_Loader(is_train=True, transform=transform_train, name_dict=classes, path=data_path, path_list=labeled)
-            trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=16)
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True)
         else:
             checkpoint = torch.load(parameter_path+f'/checkpoint/main_{epi-1}.pth')
             net.load_state_dict(checkpoint['net'])
             
             subset = random.sample(unlabeled, subset_size)
             unlblset = General_Loader_withpath(is_train=True, transform=transform_train, name_dict=classes, path=data_path, path_list=subset)
-            unlbloader = torch.utils.data.DataLoader(unlblset, batch_size=1, shuffle=False, num_workers=16)
+            # unlblset = General_Loader_withpath(is_train=True, transform=transform_train, name_dict=classes, path=data_path, path_list=unlabeled)
+            unlbloader = torch.utils.data.DataLoader(unlblset, batch_size=1, shuffle=False)
 
             confidence_list = make_conflist(net,unlbloader)
             print('Max conf ', confidence_list[0][0], " Min conf ", confidence_list[-1][0])
@@ -184,11 +197,14 @@ if __name__ == '__main__':
                 unlabeled.pop(unlabeled.index(data))
             print("Unlabeled ", len(unlabeled))
             trainset = General_Loader(is_train=True, transform=transform_train, name_dict=classes, path=data_path, path_list=labeled)
-            trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=16)
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True)
 
         for epoch in range(200):
             train(net, criterion, optimizer, epoch, trainloader)
             test(net, criterion, epoch, epi)
             scheduler.step()
+        with open(parameter_path+f'/batch{epi}.txt','w') as f:
+            for i in range(len(labeled)):
+                f.write(labeled[i]+'\n')
         with open(parameter_path+f'/main_best.txt', 'a') as f:
             f.write(str(epi) + ' ' + str(best_acc)+'\n')

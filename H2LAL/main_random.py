@@ -18,7 +18,7 @@ from models.resnet_128 import *
 from loader import General_Loader_withpath, Loader, Loader2, General_Loader
 from util import progress_bar
 
-os.environ["CUDA_VISIBLE_DEVICES"]='3,4'
+os.environ["CUDA_VISIBLE_DEVICES"]='7'
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -49,7 +49,7 @@ classes = {'airplane':0, 'automobile':1, 'bird':2, 'cat':3, 'deer':4,
            'dog':5, 'frog':6, 'horse':7, 'ship':8, 'truck':9}
 
 testset = General_Loader(is_train=False,  transform=transform_test, name_dict=classes, path=data_path)
-testloader = torch.utils.data.DataLoader(testset, batch_size=500, shuffle=False, num_workers=32)
+testloader = torch.utils.data.DataLoader(testset, batch_size=500, shuffle=False)
 
 print('==> Building model..')
 net = ResNet18()
@@ -70,6 +70,10 @@ def train(net, criterion, optimizer, epoch, trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         outputs = net(inputs)
+
+        if epoch==0:
+            outputs = outputs/10
+
         loss = criterion(outputs, targets)
         loss.backward()
         optimizer.step()
@@ -144,7 +148,7 @@ if __name__ == '__main__':
     # print(unlabeled[:5])
     labeled = []
     selected_data = []
-    episode = 10
+    episode = 1
     subset_size = 10000
     init_data_num = 1000
     for epi in range(episode):
@@ -156,14 +160,21 @@ if __name__ == '__main__':
         print('Episode ', epi+1)
 
         if epi == 0:# init_stage
-            subset = random.sample(unlabeled, subset_size)
-            labeled.extend(subset[:init_data_num])
+            # subset = random.sample(unlabeled, subset_size)
+            subset = []
+            f = open(f'/home/hinton/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/h2lal/cifar10/random/batch9.txt','r')
+            batch = f.readlines()
+            for path in batch:
+                subset.append(path[:-1])
+            
+            # labeled.extend(subset[:init_data_num])
+            labeled.extend(subset)
             # remove labeled data from unlabeled data
             for data in labeled:
                 unlabeled.pop(unlabeled.index(data))
             # make train loader
             trainset = General_Loader(is_train=True, transform=transform_train, name_dict=classes, path=data_path, path_list=labeled)
-            trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=16)
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True)
         else:
             checkpoint = torch.load(parameter_path+f'/checkpoint/main_{epi-1}.pth')
             net.load_state_dict(checkpoint['net'])
@@ -172,12 +183,15 @@ if __name__ == '__main__':
             for data in selected_data:
                 unlabeled.pop(unlabeled.index(data))
             trainset = General_Loader(is_train=True, transform=transform_train, name_dict=classes, path=data_path, path_list=labeled)
-            trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=16)
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True)
 
         for epoch in range(200):
             train(net, criterion, optimizer, epoch, trainloader)
             test(net, criterion, epoch, epi)
             scheduler.step()
+        # with open(parameter_path+f'/batch{epi}.txt','w') as f:
+        #     for i in range(len(labeled)):
+        #         f.write(labeled[i]+'\n')
         with open(parameter_path+f'/main_best.txt', 'a') as f:
             f.write(str(epi) + ' ' + str(best_acc)+'\n')
 
