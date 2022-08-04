@@ -199,6 +199,12 @@ if __name__ == '__main__':
             trainset = General_Loader(is_train=True, transform=transform_train, name_dict=classes, path=data_path, path_list=labeled)
             trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True)
 
+            net = ResNet18()
+            net = net.to(device)
+            if device == 'cuda':
+                net = torch.nn.DataParallel(net)
+                cudnn.benchmark = True
+                
         for epoch in range(200):
             train(net, criterion, optimizer, epoch, trainloader)
             test(net, criterion, epoch, epi)
