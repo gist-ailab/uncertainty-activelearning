@@ -4,7 +4,9 @@ from spice.data.stl10_embedding import STL10EMB
 from spice.data.cifar import CIFAR10, CIFAR20
 from spice.data.imagenet import ImageNetSubEmb, ImageNetSubEmbLMDB, TImageNetEmbLMDB
 from spice.data.npy import NPYEMB
+import os
 
+os.environ["CUDA_VISIBLE_DEVICES"] = '5'
 
 def build_dataset(data_cfg):
     type = data_cfg.type

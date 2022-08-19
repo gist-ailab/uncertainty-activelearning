@@ -17,7 +17,7 @@ from spice.utils.miscellaneous import mkdir, save_config
 import numpy as np
 from spice.utils.load_model_weights import load_model_weights
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ["CUDA_VISIBLE_DEVICES"] = '5'
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument(

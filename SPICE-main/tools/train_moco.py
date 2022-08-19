@@ -32,7 +32,7 @@ import moco.builder
 from moco.stl10 import STL10
 from moco.cifar import CIFAR10, CIFAR100
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ["CUDA_VISIBLE_DEVICES"] = '5'
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")

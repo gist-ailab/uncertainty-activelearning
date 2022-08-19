@@ -30,7 +30,7 @@ import logging
 from spice.utils.comm import get_rank
 import numpy as np
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ["CUDA_VISIBLE_DEVICES"] = '5'
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
