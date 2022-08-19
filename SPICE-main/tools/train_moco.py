@@ -7,6 +7,7 @@ import os
 import random
 import shutil
 import time
+from turtle import down
 import warnings
 import sys
 sys.path.insert(0, './')
@@ -31,6 +32,8 @@ import moco.builder
 from moco.stl10 import STL10
 from moco.cifar import CIFAR10, CIFAR100
 
+os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
@@ -38,7 +41,7 @@ model_names = sorted(name for name in models.__dict__
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('--data_type', default='stl10',
                     help='path to dataset')
-parser.add_argument('--data', metavar='DIR', default='./datasets/stl10',
+parser.add_argument('--data', metavar='DIR', default='/home/lecun/NAS_AIlab_dataset/personal/heo_yunjae/datasets/cifar10',
                     help='path to dataset')
 parser.add_argument('--all', default=1, type=int,
                     help='1 denotes using both train and test data')
@@ -275,7 +278,7 @@ def main_worker(gpu, ngpus_per_node, args):
                               transform=moco.loader.TwoCropsTransform(transforms.Compose(augmentation)))
     elif args.data_type == 'cifar10':
         train_dataset = CIFAR10(args.data, all=args.all,
-                                transform=moco.loader.TwoCropsTransform(transforms.Compose(augmentation)))
+                                transform=moco.loader.TwoCropsTransform(transforms.Compose(augmentation)), download=True)
     elif args.data_type == 'cifar100':
         train_dataset = CIFAR100(args.data, all=args.all,
                                  transform=moco.loader.TwoCropsTransform(transforms.Compose(augmentation)))
@@ -350,6 +353,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         # compute output
         output, target = model(im_q=images[0], im_k=images[1])
+        
         loss = criterion(output, target)
 
         # acc1/acc5 are (K+1)-way contrast classifier accuracy

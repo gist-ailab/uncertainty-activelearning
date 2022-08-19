@@ -42,7 +42,7 @@ def build_dataset(data_cfg):
                           transform1=train_trans1,
                           transform2=train_trans2,
                           target_transform=None,
-                          download=False,
+                          download=True,
                           embedding=data_cfg.embedding,
                           show=data_cfg.show,
                           )
