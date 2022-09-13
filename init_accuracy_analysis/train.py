@@ -68,7 +68,8 @@ scheduler1 = torch.optim.lr_scheduler.MultiStepLR(optimizer1, milestones=[160])
 def train(net, criterion, optimizer, epoch, trainloader, mode, subsetnum = None):
     print('\nEpoch: %d' % epoch)
     global bestacc
-    global statedict
+    loc_bestacc = 0
+    statedict = None
     net.train()
     train_loss = 0
     correct = 0
@@ -90,23 +91,25 @@ def train(net, criterion, optimizer, epoch, trainloader, mode, subsetnum = None)
         correct += predicted.eq(targets).sum().item()
         acc = 100.*correct/total
         tqdmloader.set_postfix_str(f'Acc = {acc}%')
-        if acc >= bestacc:
-            bestacc = acc
+        if acc >= loc_bestacc:
+            loc_bestacc = acc
             statedict = net.state_dict()
-            if mode == 'valid':
-                torch.save(net.state_dict(), save_path+f'/{mode}_epi{args.episode}_epoch{epoch}.pkl')
-            else:#mode == 'subset
-                torch.save(net.state_dict(), save_path+f'/{mode}_epi{args.episode}_sub{subsetnum}_epoch{epoch}.pkl')
+    if mode == 'valid' and loc_bestacc > bestacc:
+        torch.save(statedict, save_path+f'/{mode}_epi{args.episode}_epoch{epoch}_acc{loc_bestacc}.pkl')
+        bestacc = loc_bestacc
+    elif mode == 'subset' and loc_bestacc > bestacc:
+        torch.save(statedict, save_path+f'/{mode}_epi{args.episode}_sub{subsetnum}_epoch{epoch}_acc{loc_bestacc}.pkl')
+        bestacc = loc_bestacc
     tqdmloader.close()
 
 if __name__ == '__main__':
     #valid
     bestacc = 0
-    result = open(save_path+'/valid_results.txt', 'a')
+    result = open(save_path+'/valid_results.txt', 'ab')
     for i in range(total_epochs):
         train(model1, criterion1, optimizer1, i, validsetloader, mode='valid')
         scheduler1.step()
-        pickle.dump([epoch, bestacc], result)
+        pickle.dump([i, bestacc], result)
     result.close()
     #subset
     for subsetnum in range(5):
@@ -130,9 +133,9 @@ if __name__ == '__main__':
         with open(save_path+'/subsets'+f'/episode{args.episode}_sub{subsetnum}.txt', 'w') as f:
             pickle.dump(sub, f)
         
-        result = open(save_path+'/subset_results.txt', 'a')
+        result = open(save_path+'/subset_results.txt', 'ab')
         for i in range(total_epochs):
             train(model2, criterion2, optimizer2, i, subsetloader, mode='subset', subsetnum=subsetnum)
             scheduler2.step()
-            pickle.dump([epoch, bestacc], result)
+            pickle.dump([i, bestacc], result)
         result.close()
