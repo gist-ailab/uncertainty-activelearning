@@ -42,6 +42,16 @@ def partition(L,size):
 classes = [path.split('/')[-1] for path in glob(data_path+'/*')]
 filenames = glob(data_path+'/*/*')
 subset, validset = partition(filenames, subset_size)
+
+if not os.path.isdir(save_path+'/subsets'):
+    os.mkdir(save_path+'/subsets')
+with open(save_path+'/subsets'+f'/episode{args.episode}_subset.txt', 'wb') as f:
+    pickle.dump(subset, f)
+    
+if not os.path.isdir(save_path+'/valid'):
+    os.mkdir(save_path+'/valid')
+with open(save_path+'/valid'+f'/episode{args.episode}_valid.txt', 'wb') as f:
+    pickle.dump(validset, f)
     
 #make dataloaders
 print('==> Preparing data..')
@@ -91,31 +101,37 @@ def train(net, criterion, optimizer, epoch, trainloader, mode, subsetnum = None)
         correct += predicted.eq(targets).sum().item()
         acc = 100.*correct/total
         tqdmloader.set_postfix_str(f'Acc = {acc}%')
-        if acc >= loc_bestacc:
-            loc_bestacc = acc
-            statedict = net.state_dict()
-    if mode == 'valid' and loc_bestacc > bestacc:
-        torch.save(statedict, save_path+f'/{mode}_epi{args.episode}_epoch{epoch}_acc{loc_bestacc}.pkl')
-        bestacc = loc_bestacc
-    elif mode == 'subset' and loc_bestacc > bestacc:
-        torch.save(statedict, save_path+f'/{mode}_epi{args.episode}_sub{subsetnum}_epoch{epoch}_acc{loc_bestacc}.pkl')
-        bestacc = loc_bestacc
+    if mode == 'valid' and acc > bestacc:
+        bestacc = acc
+        if epoch%20==0 or epoch > 160:
+            if not os.path.isdir(save_path+'/valid'):
+                os.mkdir(save_path+'/valid')
+            torch.save(statedict, save_path+'/valid'+f'/{mode}_epi{args.episode}_epoch{epoch}_acc{acc}.pkl')
+        
+    elif mode == 'subset' and acc > bestacc:
+        bestacc = acc
+        if epoch%20==0 or epoch > 160:
+            if not os.path.isdir(save_path+f'/subset{subsetnum}'):
+                os.mkdir(save_path+f'/subset{subsetnum}')
+            torch.save(statedict, save_path+f'/subset{subsetnum}'+f'/{mode}_epi{args.episode}_sub{subsetnum}_epoch{epoch}_acc{acc}.pkl')
     tqdmloader.close()
 
 if __name__ == '__main__':
     #valid
-    bestacc = 0
-    result = open(save_path+'/valid_results.txt', 'ab')
-    for i in range(total_epochs):
-        train(model1, criterion1, optimizer1, i, validsetloader, mode='valid')
-        scheduler1.step()
-        pickle.dump([i, bestacc], result)
-    result.close()
+    # bestacc = 0
+    # result = open(save_path+'/valid_results.txt', 'a')
+    # for i in range(total_epochs):
+    #     train(model1, criterion1, optimizer1, i, validsetloader, mode='valid')
+    #     scheduler1.step()
+    #     result.write(f'epoch : {i}, acc : {bestacc}\n')
+    # result.close()
     #subset
     for subsetnum in range(5):
         bestacc = 0
         
-        sub = random.choice(subset, 1000)
+        with open(save_path+'/subsets'+f'/episode{args.episode}_subset.txt', 'rb') as f:
+            subset = pickle.load(f)
+        sub = subset[subsetnum*1000:(subsetnum+1)*1000]
         subsetdata = base_dataset(sub, transform_train, classes)
         subsetloader = DataLoader(subsetdata, batch_size, shuffle=True)
         
@@ -128,14 +144,12 @@ if __name__ == '__main__':
         scheduler2 = torch.optim.lr_scheduler.MultiStepLR(optimizer2, milestones=[160])
         
         #save subsets
-        if not os.path.isdir(save_path+'/subsets'):
-            os.mkdir(save_path+'/subsets')
-        with open(save_path+'/subsets'+f'/episode{args.episode}_sub{subsetnum}.txt', 'w') as f:
+        with open(save_path+'/subsets'+f'/episode{args.episode}_sub{subsetnum}.txt', 'wb') as f:
             pickle.dump(sub, f)
         
-        result = open(save_path+'/subset_results.txt', 'ab')
+        result = open(save_path+'/subset_results.txt', 'a')
         for i in range(total_epochs):
             train(model2, criterion2, optimizer2, i, subsetloader, mode='subset', subsetnum=subsetnum)
             scheduler2.step()
-            pickle.dump([i, bestacc], result)
+            result.write(f'epoch : {i}, acc : bestacc\n')
         result.close()
