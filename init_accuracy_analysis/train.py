@@ -78,8 +78,6 @@ scheduler1 = torch.optim.lr_scheduler.MultiStepLR(optimizer1, milestones=[160])
 def train(net, criterion, optimizer, epoch, trainloader, mode, subsetnum = None):
     print('\nEpoch: %d' % epoch)
     global bestacc
-    loc_bestacc = 0
-    statedict = None
     net.train()
     train_loss = 0
     correct = 0
@@ -106,25 +104,25 @@ def train(net, criterion, optimizer, epoch, trainloader, mode, subsetnum = None)
         if epoch%20==0 or epoch > 160:
             if not os.path.isdir(save_path+'/valid'):
                 os.mkdir(save_path+'/valid')
-            torch.save(statedict, save_path+'/valid'+f'/{mode}_epi{args.episode}_epoch{epoch}_acc{acc}.pkl')
+            torch.save(net.state_dict(), save_path+'/valid'+f'/{mode}_epi{args.episode}_epoch{epoch}_acc{acc}.pt')
         
     elif mode == 'subset' and acc > bestacc:
         bestacc = acc
         if epoch%20==0 or epoch > 160:
             if not os.path.isdir(save_path+f'/subset{subsetnum}'):
                 os.mkdir(save_path+f'/subset{subsetnum}')
-            torch.save(statedict, save_path+f'/subset{subsetnum}'+f'/{mode}_epi{args.episode}_sub{subsetnum}_epoch{epoch}_acc{acc}.pkl')
+            torch.save(net.state_dict(), save_path+f'/subset{subsetnum}'+f'/{mode}_epi{args.episode}_sub{subsetnum}_epoch{epoch}_acc{acc}.pt')
     tqdmloader.close()
 
 if __name__ == '__main__':
     #valid
-    # bestacc = 0
-    # result = open(save_path+'/valid_results.txt', 'a')
-    # for i in range(total_epochs):
-    #     train(model1, criterion1, optimizer1, i, validsetloader, mode='valid')
-    #     scheduler1.step()
-    #     result.write(f'epoch : {i}, acc : {bestacc}\n')
-    # result.close()
+    bestacc = 0
+    result = open(save_path+'/valid_results.txt', 'a')
+    for i in range(total_epochs):
+        train(model1, criterion1, optimizer1, i, validsetloader, mode='valid')
+        scheduler1.step()
+        result.write(f'epoch : {i}, acc : {bestacc}\n')
+    result.close()
     #subset
     for subsetnum in range(5):
         bestacc = 0
@@ -151,5 +149,5 @@ if __name__ == '__main__':
         for i in range(total_epochs):
             train(model2, criterion2, optimizer2, i, subsetloader, mode='subset', subsetnum=subsetnum)
             scheduler2.step()
-            result.write(f'epoch : {i}, acc : bestacc\n')
+            result.write(f'epoch : {i}, acc : {bestacc}\n')
         result.close()
