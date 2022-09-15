@@ -41,7 +41,7 @@ transform_test = transforms.Compose([
 ])
 filenames = glob(args.data_path+'/*/*')
 testsetdata = base_dataset(filenames, transform_test, classes)
-testsetloader = DataLoader(testsetdata, args.batch_size, shuffle=True)
+testsetloader = DataLoader(testsetdata, args.batch_size, shuffle=False)
 
 model1 = resnet18()
 model1.fc = nn.Linear(512, len(classes))
