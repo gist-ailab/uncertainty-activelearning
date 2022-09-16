@@ -47,14 +47,14 @@ model1 = resnet18()
 model1.fc = nn.Linear(512, len(classes))
 model1 = model1.cuda()
 
-path = '/home/bengio/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/init_analysis/valid/valid_epi0_epoch196_acc93.435.pkl'
-with open(path, 'rb') as f:
-    stdict = pickle.load(path)
-# stdict = torch.load(path)
+path = '/home/bengio/NAS_AIlab_dataset/personal/heo_yunjae/Parameters/Uncertainty/init_analysis/subset1/subset_epi4_sub1_epoch188_acc99.8.pt'
+stdict = torch.load(path)
 model1.load_state_dict(stdict)
 
 def test(net, testloader):
     net.eval()
+    total = 0
+    correct = 0
     tqdmloader = tqdm(testloader)
     for _, (inputs, targets) in enumerate(tqdmloader):
         # print(inputs, targets)
