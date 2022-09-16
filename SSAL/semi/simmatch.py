@@ -8,11 +8,13 @@ import argparse
 from util.accuracy import accuracy
 from util.dist_init import *
 from network.google_wide_resnet import wide_resnet28w2, wide_resnet28w8
+from network.resnet import resnet18
 from network.head import *
 import time
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LambdaLR
 from network.simmatch import SimMatch
+
 
 
 parser = argparse.ArgumentParser()
@@ -154,7 +156,7 @@ def test(model,  test_loader, local_rank):
     return top1_acc, top5_acc, ema_top1_acc, ema_top5_acc
 
 def main():
-    rank, local_rank, world_size = dist_init(port=args.port)
+    rank, local_rank, world_size = 1,1,1
     
     batch_size = 64 // world_size
     n_iters_per_epoch = 1024
@@ -169,7 +171,7 @@ def main():
                                             label_per_class=args.label_per_class, 
                                             batch_size=batch_size, 
                                             n_iters_per_epoch=n_iters_per_epoch, 
-                                            mu=mu, dist=True, return_index=True
+                                            mu=mu, dist=False, return_index=True
                                         )
 
     if args.dataset == 'cifar10':
@@ -184,14 +186,15 @@ def main():
         base_model = wide_resnet28w8()
     else:
         weight_decay = 5e-4
-        base_model = wide_resnet28w2()
+        # base_model = wide_resnet28w2()
+        base_model = resnet18()
     
     if world_size > 1:
         base_model = nn.SyncBatchNorm.convert_sync_batchnorm(base_model)
 
     model = SimMatch(base_encoder=base_model, num_classes=num_classes, K=len(dltrain_x.dataset), args=args)
     model.cuda()
-    model = DistributedDataParallel(model, device_ids=[local_rank], find_unused_parameters=True)
+    # model = DistributedDataParallel(model, device_ids=[0], find_unused_parameters=True)
 
     no_decay = ['bias', 'bn']
     grouped_parameters = [
@@ -204,8 +207,9 @@ def main():
     optimizer = torch.optim.SGD(grouped_parameters, lr=lr, momentum=0.9, nesterov=True)
     scheduler = get_cosine_schedule_with_warmup(optimizer, 0, epochs*n_iters_per_epoch)
     
-    test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, num_workers=4, pin_memory=True, sampler=test_sampler)
+    # test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset)
+    # test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, num_workers=4, pin_memory=True, sampler=test_sampler)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size)
 
     best_acc1 = best_acc5 = 0
     best_ema1 = best_ema5 = 0
@@ -217,7 +221,7 @@ def main():
     checkpoint_path = 'checkpoints/{}'.format(args.checkpoint)
     print('checkpoint_path:', checkpoint_path)
     if os.path.exists(checkpoint_path):
-        checkpoint =  torch.load(checkpoint_path, map_location='cpu')
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         scheduler.load_state_dict(checkpoint['scheduler'])

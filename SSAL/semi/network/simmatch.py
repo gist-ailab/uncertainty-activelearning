@@ -12,6 +12,7 @@ class BackBone(nn.Module):
         super(BackBone, self).__init__()
         self.net = base_encoder
         self.fc = nn.Linear(self.net.out_dim, num_classes)
+        # self.fc = nn.Linear(512, num_classes)
         self.head = nn.Sequential(
             nn.Linear(self.net.out_dim, self.net.out_dim),
             nn.ReLU(True),
@@ -130,8 +131,10 @@ def concat_all_gather(tensor):
     Performs all_gather operation on the provided tensors.
     *** Warning ***: torch.distributed.all_gather has no gradient.
     """
+    # tensors_gather = [torch.ones_like(tensor)
+    #     for _ in range(torch.distributed.get_world_size())]
     tensors_gather = [torch.ones_like(tensor)
-        for _ in range(torch.distributed.get_world_size())]
+        for _ in range(1)]
     torch.distributed.all_gather(tensors_gather, tensor)
 
     output = torch.cat(tensors_gather, dim=0)
