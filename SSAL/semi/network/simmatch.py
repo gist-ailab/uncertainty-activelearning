@@ -65,7 +65,7 @@ class SimMatch(nn.Module):
 
     @torch.no_grad()
     def _update_bank(self, k, labels, index, args):
-        if torch.distributed.get_world_size() > 1:
+        if 1 > 1:
             k      = concat_all_gather(k)
             labels = concat_all_gather(labels)
             index  = concat_all_gather(index)

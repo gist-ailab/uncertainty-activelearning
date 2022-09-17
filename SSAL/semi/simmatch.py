@@ -14,14 +14,15 @@ import time
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LambdaLR
 from network.simmatch import SimMatch
+import os
 
-
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=23456)
 parser.add_argument('--seed', type=int, default=0)
 parser.add_argument('--epochs', type=int, default=256)
-parser.add_argument('--checkpoint', type=str, default='')
+parser.add_argument('--checkpoint', type=str, default='100label.pt')
 parser.add_argument('--label_per_class', type=int, default=10)
 parser.add_argument('--threshold', type=float, default=0.95)
 parser.add_argument('--dataset', type=str, default='cifar10')
@@ -72,8 +73,8 @@ def train(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_
     )
     end = time.time()
 
-    dltrain_x.sampler.set_epoch(epoch)
-    dltrain_u.sampler.set_epoch(epoch)
+    # dltrain_x.sampler.set_epoch(epoch)
+    # dltrain_u.sampler.set_epoch(epoch)
     dl_x, dl_u = iter(dltrain_x), iter(dltrain_u)
 
     model.train()
@@ -134,12 +135,15 @@ def test(model,  test_loader, local_rank):
             image = image.cuda(local_rank, non_blocking=True)
             label = label.cuda(local_rank, non_blocking=True)
             
-            out = model.module.encoder_q(image)
+            # out = model.module.encoder_q(image)
+            out = model.encoder_q(image)
             acc1, acc5 = accuracy(out, label, topk=(1, 5))
+            # print(acc1[0].shape)
+            # print(image.size(0))
             top1.update(acc1[0], image.size(0))
             top5.update(acc5[0], image.size(0))
 
-            ema_out = model.module.ema(image)
+            ema_out = model.ema(image)
             ema_acc1, ema_acc5 = accuracy(ema_out, label, topk=(1, 5))
             ema_top1.update(ema_acc1[0], image.size(0))
             ema_top5.update(ema_acc5[0], image.size(0))
@@ -156,7 +160,7 @@ def test(model,  test_loader, local_rank):
     return top1_acc, top5_acc, ema_top1_acc, ema_top5_acc
 
 def main():
-    rank, local_rank, world_size = 1,1,1
+    rank, local_rank, world_size = 0,0,1
     
     batch_size = 64 // world_size
     n_iters_per_epoch = 1024
@@ -189,8 +193,8 @@ def main():
         # base_model = wide_resnet28w2()
         base_model = resnet18()
     
-    if world_size > 1:
-        base_model = nn.SyncBatchNorm.convert_sync_batchnorm(base_model)
+    # if world_size > 1:
+    #     base_model = nn.SyncBatchNorm.convert_sync_batchnorm(base_model)
 
     model = SimMatch(base_encoder=base_model, num_classes=num_classes, K=len(dltrain_x.dataset), args=args)
     model.cuda()
@@ -218,7 +222,7 @@ def main():
     if not os.path.exists('checkpoints') and rank==0:
         os.makedirs('checkpoints')
 
-    checkpoint_path = 'checkpoints/{}'.format(args.checkpoint)
+    checkpoint_path = './checkpoints/{}'.format(args.checkpoint)
     print('checkpoint_path:', checkpoint_path)
     if os.path.exists(checkpoint_path):
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
