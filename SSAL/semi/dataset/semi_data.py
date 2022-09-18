@@ -164,7 +164,7 @@ class MultiCropsTransform:
         return imgs
 
 
-def get_fixmatch_data(dataset='cifar10', label_per_class=10, batch_size=64, n_iters_per_epoch=1024, mu=7, dist=False, return_index=False):
+def get_fixmatch_data(dataset='cifar10', label_per_class=10, batch_size=64, n_iters_per_epoch=1024, mu=7, dist=False, return_index=False, indexes=None):
     weak_augment = get_train_augment(dataset)
     rand_augment = get_rand_augment(dataset)
 
@@ -181,9 +181,11 @@ def get_fixmatch_data(dataset='cifar10', label_per_class=10, batch_size=64, n_it
         data.targets = data.labels
         num_classes = 10
 
-    labeled_idx, unlabeled_idx = x_u_split(label_per_class=label_per_class, num_classes=num_classes, labels=data.targets)
-
-    
+    #ActiveLearning 할 시 label 수를 변화시키기 위해 수정해야 할 부분(완료)
+    if indexes==None:
+        labeled_idx, unlabeled_idx = x_u_split(label_per_class=label_per_class, num_classes=num_classes, labels=data.targets)
+    else:
+        labeled_idx, unlabeled_idx = indexes
 
     if 'cifar' in dataset:
         if dataset == 'cifar10':
@@ -241,7 +243,7 @@ def get_fixmatch_data(dataset='cifar10', label_per_class=10, batch_size=64, n_it
     if dist:
         return dl_x, dl_u
     
-    return dl_x, dl_u
+    return dl_x, dl_u, labeled_idx, unlabeled_idx
 
 
 

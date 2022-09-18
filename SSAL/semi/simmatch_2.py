@@ -15,14 +15,17 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LambdaLR
 from network.simmatch import SimMatch
 import os
+import numpy as np
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=23456)
-parser.add_argument('--seed', type=int, default=0)
-parser.add_argument('--epochs', type=int, default=256)
+parser.add_argument('--seed', type=int, default=1)
+parser.add_argument('--epochs', type=int, default=200)
+parser.add_argument('--episodes', type=int, default=1)
 parser.add_argument('--checkpoint', type=str, default='100label.pt')
+parser.add_argument('--init_para', type=str, default=None)
 parser.add_argument('--label_per_class', type=int, default=10)
 parser.add_argument('--threshold', type=float, default=0.95)
 parser.add_argument('--dataset', type=str, default='cifar10')
@@ -135,11 +138,8 @@ def test(model,  test_loader, local_rank):
             image = image.cuda(local_rank, non_blocking=True)
             label = label.cuda(local_rank, non_blocking=True)
             
-            # out = model.module.encoder_q(image)
             out = model.encoder_q(image)
             acc1, acc5 = accuracy(out, label, topk=(1, 5))
-            # print(acc1[0].shape)
-            # print(image.size(0))
             top1.update(acc1[0], image.size(0))
             top5.update(acc5[0], image.size(0))
 
@@ -159,7 +159,7 @@ def test(model,  test_loader, local_rank):
 
     return top1_acc, top5_acc, ema_top1_acc, ema_top5_acc
 
-def main():
+def main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_model, episode):
     rank, local_rank, world_size = 0,0,1
     
     batch_size = 64 // world_size
@@ -167,39 +167,8 @@ def main():
     lr = 0.03
     mu = 7
 
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cudnn.deterministic = True
-
-    dltrain_x, dltrain_u = get_fixmatch_data(
-                                            dataset=args.dataset, 
-                                            label_per_class=args.label_per_class, 
-                                            batch_size=batch_size, 
-                                            n_iters_per_epoch=n_iters_per_epoch, 
-                                            mu=mu, dist=False, return_index=True,
-                                            indexes=None
-                                        )
-
-    if args.dataset == 'cifar10':
-        test_dataset = datasets.CIFAR10(root='data', train=False, download=True, transform=get_test_augment('cifar10'))
-        num_classes = 10
-    elif args.dataset == 'cifar100':
-        test_dataset = datasets.CIFAR100(root='data', train=False, download=True, transform=get_test_augment('cifar100'))
-        num_classes = 100
-
-    if args.dataset == 'cifar100':
-        weight_decay = 1e-3
-        base_model = wide_resnet28w8()
-    else:
-        weight_decay = 5e-4
-        # base_model = wide_resnet28w2()
-        base_model = resnet18()
-    
-    # if world_size > 1:
-    #     base_model = nn.SyncBatchNorm.convert_sync_batchnorm(base_model)
-
     model = SimMatch(base_encoder=base_model, num_classes=num_classes, K=len(dltrain_x.dataset), args=args)
     model.cuda()
-    # model = DistributedDataParallel(model, device_ids=[0], find_unused_parameters=True)
 
     no_decay = ['bias', 'bn']
     grouped_parameters = [
@@ -212,8 +181,6 @@ def main():
     optimizer = torch.optim.SGD(grouped_parameters, lr=lr, momentum=0.9, nesterov=True)
     scheduler = get_cosine_schedule_with_warmup(optimizer, 0, epochs*n_iters_per_epoch)
     
-    # test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset)
-    # test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, num_workers=4, pin_memory=True, sampler=test_sampler)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size)
 
     best_acc1 = best_acc5 = 0
@@ -223,8 +190,12 @@ def main():
     if not os.path.exists('checkpoints') and rank==0:
         os.makedirs('checkpoints')
 
-    checkpoint_path = './checkpoints/{}'.format(args.checkpoint)
+    #조금 더 고민 필요
+    checkpoint_path = f'./checkpoints/seed{args.seed}_epi{episode}_{args.checkpoint}'
     print('checkpoint_path:', checkpoint_path)
+    if not(args.init_para==None):
+        checkpoint = torch.load(args.init_para, map_location='cpu')
+        model.load_state_dict(checkpoint['model'], strict=False)
     if os.path.exists(checkpoint_path):
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
         model.load_state_dict(checkpoint['model'])
@@ -254,9 +225,53 @@ def main():
                     'scheduler': scheduler.state_dict(),
                     'epoch': epoch + 1
                 }, checkpoint_path)
+        
+        #Sampling Algorithm 추가, unlbl_idx, lbl_idx, model_para를 받아서 unlbl에서 lbl로 보낼 것들을 선별
+        #위에서 선별된 결과를 return 시켜 다음 loader를 만들때 반영
+        
 
 if __name__ == "__main__":
-    main()
-
+    rank, local_rank, world_size = 0,0,1
+    
+    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.deterministic = True
+    
+    batch_size = 64 // world_size
+    n_iters_per_epoch = 1024
+    lr = 0.01
+    mu = 7
+    
+    if args.dataset == 'cifar10':
+        test_dataset = datasets.CIFAR10(root='data', train=False, download=True, transform=get_test_augment('cifar10'))
+        num_classes = 10
+    elif args.dataset == 'cifar100':
+        test_dataset = datasets.CIFAR100(root='data', train=False, download=True, transform=get_test_augment('cifar100'))
+        num_classes = 100
+        
+    if args.dataset == 'cifar100':
+        weight_decay = 1e-3
+        base_model = wide_resnet28w8()
+    else:
+        weight_decay = 5e-4
+        # base_model = wide_resnet28w2()
+        base_model = resnet18()
+    
+    indexes = None
+    for episode in range(args.episodes):
+        
+        dltrain_x, dltrain_u, labeled_idx, unlabeled_idx = get_fixmatch_data(
+                                                                            dataset=args.dataset, 
+                                                                            label_per_class=args.label_per_class, 
+                                                                            batch_size=batch_size, 
+                                                                            n_iters_per_epoch=n_iters_per_epoch, 
+                                                                            mu=mu, dist=False, return_index=True,
+                                                                            indexes=indexes
+                                                                        )
+        np.savetxt(f'./checkpoints/seed{args.seed}_epi{episode}_labeled.txt', labeled_idx)
+        np.savetxt(f'./checkpoints/seed{args.seed}_epi_{episode}_unlabeled.txt', unlabeled_idx)
+        
+        main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_model, episode)
+        #main으로 부터 indexes 관련 받아서
+        # indexes = ...
 
 

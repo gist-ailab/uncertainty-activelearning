@@ -28,6 +28,7 @@ share/python-wheels/
 *.tar
 *.tar.gz
 MANIFEST
+*.pt
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
