@@ -203,7 +203,8 @@ def get_fixmatch_data(dataset='cifar10', label_per_class=10, batch_size=64, n_it
         ds_u = loader(
             root='data',
             indexs=unlabeled_idx,
-            transform=pair_transform
+            transform=pair_transform,
+            return_index=return_index,
         )
 
     else:

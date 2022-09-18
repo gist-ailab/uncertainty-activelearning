@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from util.meter import *
 from dataset.semi_data import *
 from util.torch_dist_sum import *
+from util.std_convert import std_convert
 import argparse
 from util.accuracy import accuracy
 from util.dist_init import *
@@ -16,6 +17,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from network.simmatch import SimMatch
 import os
 import numpy as np
+import pickle
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 
@@ -23,9 +25,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=23456)
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--epochs', type=int, default=200)
-parser.add_argument('--episodes', type=int, default=1)
+parser.add_argument('--episodes', type=int, default=8)
 parser.add_argument('--checkpoint', type=str, default='100label.pt')
-parser.add_argument('--init_para', type=str, default=None)
 parser.add_argument('--label_per_class', type=int, default=10)
 parser.add_argument('--threshold', type=float, default=0.95)
 parser.add_argument('--dataset', type=str, default='cifar10')
@@ -79,17 +80,18 @@ def train(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_
     # dltrain_x.sampler.set_epoch(epoch)
     # dltrain_u.sampler.set_epoch(epoch)
     dl_x, dl_u = iter(dltrain_x), iter(dltrain_u)
-
+    ulbl_loss_dict = dict()
     model.train()
     for i in range(n_iters_per_epoch):
 
         data_time.update(time.time() - end)
 
         ims_x_weak, lbs_x, index_x = next(dl_x)
-        (ims_u_weak, ims_u_strong), lbs_u_real = next(dl_u)
+        (ims_u_weak, ims_u_strong), lbs_u_real, index_u = next(dl_u)
 
         lbs_x = lbs_x.cuda(local_rank, non_blocking=True)
         index_x = index_x.cuda(local_rank, non_blocking=True)
+        # index_u = index_u.cuda(local_rank, non_blocking=True)
         lbs_u_real = lbs_u_real.cuda(local_rank, non_blocking=True)
         ims_x_weak = ims_x_weak.cuda(local_rank, non_blocking=True)
         ims_u_weak = ims_u_weak.cuda(local_rank, non_blocking=True)
@@ -105,6 +107,12 @@ def train(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_
         max_probs, _ = torch.max(pseudo_label, dim=-1)
         mask = max_probs.ge(args.threshold).float()
         loss_u = (torch.sum(-F.log_softmax(logits_u_s,dim=1) * pseudo_label.detach(), dim=1) * mask).mean()
+        
+        if epoch == args.epochs-1:
+            if index_u not in ulbl_loss_dict.keys():
+                ulbl_loss_dict[index_u] = loss_u
+            if index_u in ulbl_loss_dict.keys():
+                ulbl_loss_dict[index_u] += loss_u
         
         loss_in = loss_in.mean()
         loss = loss_x + loss_u + loss_in * args.lambda_in
@@ -123,7 +131,10 @@ def train(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_
 
         if rank == 0 and i % 10 == 0:
             progress.display(i)
-
+            
+    if epoch == args.epochs-1:
+        return [(ulbl_loss_dict[key], key) for key in ulbl_loss_dict.keys()]
+        
 
 @torch.no_grad()
 def test(model,  test_loader, local_rank):
@@ -159,7 +170,7 @@ def test(model,  test_loader, local_rank):
 
     return top1_acc, top5_acc, ema_top1_acc, ema_top5_acc
 
-def main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_model, episode):
+def main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_model, episode, init_state_dict=None):
     rank, local_rank, world_size = 0,0,1
     
     batch_size = 64 // world_size
@@ -193,9 +204,8 @@ def main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_mod
     #조금 더 고민 필요
     checkpoint_path = f'./checkpoints/seed{args.seed}_epi{episode}_{args.checkpoint}'
     print('checkpoint_path:', checkpoint_path)
-    if not(args.init_para==None):
-        checkpoint = torch.load(args.init_para, map_location='cpu')
-        model.load_state_dict(checkpoint['model'], strict=False)
+    if not(init_state_dict==None):
+        model.load_state_dict(init_state_dict, strict=False)
     if os.path.exists(checkpoint_path):
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
         model.load_state_dict(checkpoint['model'])
@@ -206,7 +216,10 @@ def main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_mod
         start_epoch = 0
 
     for epoch in range(start_epoch, epochs):
-        train(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_epoch, local_rank, rank)
+        if epoch == epochs-1:
+            ulbl_loss_list = train(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_epoch, local_rank, rank)
+        else:
+            train(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_epoch, local_rank, rank)
         top1_acc, top5_acc, ema_top1_acc, ema_top5_acc = test(model, test_loader, local_rank)
 
         best_acc1 = max(top1_acc, best_acc1)
@@ -228,7 +241,9 @@ def main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_mod
         
         #Sampling Algorithm 추가, unlbl_idx, lbl_idx, model_para를 받아서 unlbl에서 lbl로 보낼 것들을 선별
         #위에서 선별된 결과를 return 시켜 다음 loader를 만들때 반영
-        
+        K = 400 if episode==0 else 500
+        ulbl_loss_list.sort(key=lambda x:x[0], reverse=True)
+        return [data[1] for data in ulbl_loss_list[:K]]
 
 if __name__ == "__main__":
     rank, local_rank, world_size = 0,0,1
@@ -258,7 +273,17 @@ if __name__ == "__main__":
     
     indexes = None
     for episode in range(args.episodes):
-        
+        if episode == 0:
+            init_data = ''
+            with open(init_data, 'r') as f:
+                init_data_list = pickle.load(f)
+                init_data_idx = [data[1] for data in init_data_list]
+                ulbl_data_idx = [i for i in range(50000) if i not in init_data_idx]
+                indexes = [init_data_idx,ulbl_data_idx]
+            init_para = ''
+            init_state_dict = torch.load(init_para)
+            init_state_dict = std_convert(init_state_dict)
+            
         dltrain_x, dltrain_u, labeled_idx, unlabeled_idx = get_fixmatch_data(
                                                                             dataset=args.dataset, 
                                                                             label_per_class=args.label_per_class, 
@@ -270,8 +295,11 @@ if __name__ == "__main__":
         np.savetxt(f'./checkpoints/seed{args.seed}_epi{episode}_labeled.txt', labeled_idx)
         np.savetxt(f'./checkpoints/seed{args.seed}_epi_{episode}_unlabeled.txt', unlabeled_idx)
         
-        main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_model, episode)
+        sampled_idx = main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_model, episode, init_state_dict)
         #main으로 부터 indexes 관련 받아서
         # indexes = ...
-
+        lbl_data_idx = lbl_data_idx + sampled_idx
+        ulbl_data_idx = [idx for idx in ulbl_data_idx if idx not in sampled_idx]
+        indexes = [lbl_data_idx, ulbl_data_idx]
+        init_state_dict = None
 
