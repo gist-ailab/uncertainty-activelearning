@@ -1,3 +1,4 @@
+from tabnanny import check
 import torch
 from dataset.data import *
 import torch.nn.functional as F
@@ -36,7 +37,7 @@ parser.add_argument('--c_smooth', type=float, default=0.9)
 parser.add_argument('--lambda_in', type=float, default=1)
 parser.add_argument('--st', type=float, default=0.1)
 parser.add_argument('--tt', type=float, default=0.1)
-
+parser.add_argument('--load', type=bool, default=False)
 
 args = parser.parse_args()
 print(args)
@@ -203,9 +204,13 @@ def main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_mod
 
     #조금 더 고민 필요
     checkpoint_path = f'./checkpoints/seed{args.seed}_epi{episode}_{args.checkpoint}'
+    load_path = f'./checkpoints/seed{args.seed}_epi{episode-1}_{args.checkpoint}'
     print('checkpoint_path:', checkpoint_path)
     if not(init_state_dict==None):
         model.load_state_dict(init_state_dict, strict=False)
+    if os.path.exists(load_path) and args.load:
+        checkpoint = torch.load(load_path, map_location='cpu')
+        model.load_state_dict(checkpoint['model'])
     if os.path.exists(checkpoint_path):
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
         model.load_state_dict(checkpoint['model'])
@@ -274,13 +279,13 @@ if __name__ == "__main__":
     indexes = None
     for episode in range(args.episodes):
         if episode == 0:
-            init_data = ''
-            with open(init_data, 'r') as f:
+            init_data = '/home/bengio/NAS_AIlab_dataset/personal/heo_yunjae/uncertainty-activelearning/SSAL/SimCLR-2/runs/Sep19_02-36-34_ailab-server-bengio/checkpoints/sampled_idx.pkl'
+            with open(init_data, 'rb') as f:
                 init_data_list = pickle.load(f)
-                init_data_idx = [data[1] for data in init_data_list]
-                ulbl_data_idx = [i for i in range(50000) if i not in init_data_idx]
-                indexes = [init_data_idx,ulbl_data_idx]
-            init_para = ''
+            init_data_idx = [data[1] for data in init_data_list]
+            ulbl_data_idx = [i for i in range(50000) if i not in init_data_idx]
+            indexes = [init_data_idx,ulbl_data_idx]
+            init_para = '/home/bengio/NAS_AIlab_dataset/personal/heo_yunjae/uncertainty-activelearning/SSAL/SimCLR-2/runs/Sep19_02-36-34_ailab-server-bengio/checkpoints/model.pth'
             init_state_dict = torch.load(init_para)
             init_state_dict = std_convert(init_state_dict)
             
