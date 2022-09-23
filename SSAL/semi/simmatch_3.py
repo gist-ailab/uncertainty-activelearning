@@ -20,12 +20,12 @@ import os
 import numpy as np
 import pickle
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+os.environ["CUDA_VISIBLE_DEVICES"] = '2'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=23456)
 parser.add_argument('--seed', type=int, default=1)
-parser.add_argument('--epochs', type=int, default=200)
+parser.add_argument('--epochs', type=int, default=1)
 parser.add_argument('--episodes', type=int, default=8)
 parser.add_argument('--checkpoint', type=str, default='100label.pt')
 parser.add_argument('--label_per_class', type=int, default=10)
@@ -88,7 +88,7 @@ def train(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_
         data_time.update(time.time() - end)
 
         ims_x_weak, lbs_x, index_x = next(dl_x)
-        (ims_u_weak, ims_u_strong), lbs_u_real, index_u = next(dl_u)
+        (ims_u_weak, ims_u_strong), lbs_u_real, _= next(dl_u)
 
         lbs_x = lbs_x.cuda(local_rank, non_blocking=True)
         index_x = index_x.cuda(local_rank, non_blocking=True)
@@ -109,11 +109,11 @@ def train(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_
         mask = max_probs.ge(args.threshold).float()
         loss_u = (torch.sum(-F.log_softmax(logits_u_s,dim=1) * pseudo_label.detach(), dim=1) * mask).mean()
         
-        if epoch == args.epochs-1:
-            if index_u not in ulbl_loss_dict.keys():
-                ulbl_loss_dict[index_u] = loss_u
-            if index_u in ulbl_loss_dict.keys():
-                ulbl_loss_dict[index_u] += loss_u
+        # if epoch == args.epochs-1:
+        #     if index_u not in ulbl_loss_dict.keys():
+        #         ulbl_loss_dict[index_u] = loss_u
+        #     if index_u in ulbl_loss_dict.keys():
+        #         ulbl_loss_dict[index_u] += loss_u
         
         loss_in = loss_in.mean()
         loss = loss_x + loss_u + loss_in * args.lambda_in
@@ -133,8 +133,8 @@ def train(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_
         if rank == 0 and i % 10 == 0:
             progress.display(i)
             
-    if epoch == args.epochs-1:
-        return [(ulbl_loss_dict[key], key) for key in ulbl_loss_dict.keys()]
+    # if epoch == args.epochs-1:
+    #     return [(ulbl_loss_dict[key], key) for key in ulbl_loss_dict.keys()]
         
 
 @torch.no_grad()
@@ -171,6 +171,9 @@ def test(model,  test_loader, local_rank):
 
     return top1_acc, top5_acc, ema_top1_acc, ema_top5_acc
 
+def data_selection(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_epoch, local_rank, rank):
+    pass
+
 def main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_model, episode, init_state_dict=None):
     rank, local_rank, world_size = 0,0,1
     
@@ -199,12 +202,12 @@ def main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_mod
     best_ema1 = best_ema5 = 0
 
 
-    if not os.path.exists('checkpoints') and rank==0:
-        os.makedirs('checkpoints')
+    if not os.path.exists('checkpoints2') and rank==0:
+        os.makedirs('checkpoints2')
 
     #조금 더 고민 필요
-    checkpoint_path = f'./checkpoints/seed{args.seed}_epi{episode}_{args.checkpoint}'
-    load_path = f'./checkpoints/seed{args.seed}_epi{episode-1}_{args.checkpoint}'
+    checkpoint_path = f'./checkpoints2/seed{args.seed}_epi{episode}_{args.checkpoint}'
+    load_path = f'./checkpoints2/seed{args.seed}_epi{episode-1}_{args.checkpoint}'
     print('checkpoint_path:', checkpoint_path)
     if not(init_state_dict==None):
         model.load_state_dict(init_state_dict, strict=False)
@@ -224,10 +227,7 @@ def main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_mod
         start_epoch = 0
 
     for epoch in range(start_epoch, epochs):
-        if epoch == epochs-1:
-            ulbl_loss_list = train(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_epoch, local_rank, rank)
-        else:
-            train(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_epoch, local_rank, rank)
+        train(model, optimizer, scheduler, dltrain_x, dltrain_u, epoch, n_iters_per_epoch, local_rank, rank)
         top1_acc, top5_acc, ema_top1_acc, ema_top5_acc = test(model, test_loader, local_rank)
 
         if top1_acc > best_acc1:
@@ -238,7 +238,7 @@ def main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_mod
                     'scheduler': scheduler.state_dict(),
                     'epoch': epoch + 1
                 }, checkpoint_path)
-
+        
         best_acc1 = max(top1_acc, best_acc1)
         best_acc5 = max(top5_acc, best_acc5)
         best_ema1 = max(ema_top1_acc, best_ema1)
@@ -259,9 +259,9 @@ def main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_mod
         #Sampling Algorithm 추가, unlbl_idx, lbl_idx, model_para를 받아서 unlbl에서 lbl로 보낼 것들을 선별
         #위에서 선별된 결과를 return 시켜 다음 loader를 만들때 반영
         
-    K = 400 if episode==0 else 500
-    ulbl_loss_list.sort(key=lambda x:x[0], reverse=True)
-    return [data[1] for data in ulbl_loss_list[:K]]
+    # K = 400 if episode==0 else 500
+    # ulbl_loss_list.sort(key=lambda x:x[0], reverse=True)
+    # return [data[1] for data in ulbl_loss_list[:K]]
 
 if __name__ == "__main__":
     rank, local_rank, world_size = 0,0,1
@@ -275,7 +275,7 @@ if __name__ == "__main__":
     mu = 7
     
     if args.dataset == 'cifar10':
-        test_dataset = datasets.CIFAR10(root='data', train=False, download=True, transform=get_test_augment('cifar10'))
+        test_dataset = datasets.CIFAR10(root='data', train=False, download=True, transform=get_test_auggetment('cifar10'))
         num_classes = 10
     elif args.dataset == 'cifar100':
         test_dataset = datasets.CIFAR100(root='data', train=False, download=True, transform=get_test_augment('cifar100'))
@@ -292,19 +292,19 @@ if __name__ == "__main__":
     indexes = None
     for episode in range(args.episodes):
         if episode == 0:
-            init_data = '/home/bengio/NAS_AIlab_dataset/personal/heo_yunjae/uncertainty-activelearning/SSAL/SimCLR-2/runs/Sep21_17-20-02_ailab-server-bengio/checkpoints/sampled_idx.pkl'
+            init_data = '/home/bengio/NAS_AIlab_dataset/personal/heo_yunjae/uncertainty-activelearning/SSAL/SimCLR-2/runs/Sep22_13-46-06_ailab-server-bengio/checkpoints/sampled_idx.pkl'
             with open(init_data, 'rb') as f:
                 init_data_list = pickle.load(f)
-            init_data_idx = [data[1] for data in init_data_list]
-            ulbl_data_idx = [i for i in range(50000) if i not in init_data_idx]
-            init_data_idx = np.array(init_data_idx)
+            lbl_data_idx = [data[1] for data in init_data_list]
+            ulbl_data_idx = [i for i in range(50000) if i not in lbl_data_idx]
+            lbl_data_idx = np.array(lbl_data_idx)
             ulbl_data_idx = np.array(ulbl_data_idx)
-            indexes = [init_data_idx,ulbl_data_idx]
-            print(init_data_idx[:3])
+            indexes = [lbl_data_idx,ulbl_data_idx]
+            # print(init_data_idx[:3])
             # print(len(init_data_idx))
-            indexes = None
+            # indexes = None
             
-            init_para = '/home/bengio/NAS_AIlab_dataset/personal/heo_yunjae/uncertainty-activelearning/SSAL/SimCLR-2/runs/Sep21_17-20-02_ailab-server-bengio/checkpoints/model.pth'
+            init_para = '/home/bengio/NAS_AIlab_dataset/personal/heo_yunjae/uncertainty-activelearning/SSAL/SimCLR-2/runs/Sep22_13-46-06_ailab-server-bengio/checkpoints/model.pth'
             init_state_dict = torch.load(init_para)
             init_state_dict = std_convert2(init_state_dict)
             # print(init_state_dict)
@@ -318,14 +318,19 @@ if __name__ == "__main__":
                                                                             mu=mu, dist=False, return_index=True,
                                                                             indexes=indexes
                                                                         )
-        np.savetxt(f'./checkpoints/seed{args.seed}_epi{episode}_labeled.txt', labeled_idx)
-        np.savetxt(f'./checkpoints/seed{args.seed}_epi_{episode}_unlabeled.txt', unlabeled_idx)
+        np.savetxt(f'./checkpoints2/seed{args.seed}_epi{episode}_labeled.txt', labeled_idx)
+        np.savetxt(f'./checkpoints2/seed{args.seed}_epi_{episode}_unlabeled.txt', unlabeled_idx)
         
         sampled_idx = main(dltrain_x, dltrain_u, test_dataset, num_classes, weight_decay, base_model, episode, init_state_dict)
         #main으로 부터 indexes 관련 받아서
         # indexes = ...
-        lbl_data_idx = lbl_data_idx + sampled_idx
-        ulbl_data_idx = [idx for idx in ulbl_data_idx if idx not in sampled_idx]
+        
+        lbl_data_idx = list(lbl_data_idx) + list(sampled_idx)
+        print(sampled_idx[:3])
+        print(type(sampled_idx))
+        print(ulbl_data_idx[:3])
+        print(type(ulbl_data_idx))
+        ulbl_data_idx = [idx for idx in list(ulbl_data_idx) if not (idx in list(sampled_idx))]
         indexes = [lbl_data_idx, ulbl_data_idx]
         init_state_dict = None
 

@@ -244,6 +244,8 @@ def get_fixmatch_data(dataset='cifar10', label_per_class=10, batch_size=64, n_it
     if dist:
         return dl_x, dl_u
     
+    print(labeled_idx[:3])
+    print(type(labeled_idx))
     return dl_x, dl_u, labeled_idx, unlabeled_idx
 
 
