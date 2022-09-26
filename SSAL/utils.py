@@ -96,4 +96,11 @@ def get_step_dec(loss_list, k=1000):
         sampled_list += loss_list[(step-i)*n:(step-1-i)*n:-1][:(n+10*step//2-i*step)]
     return sampled_list
 
+def get_random(loss_list, k=1000, seed=1):
+    import copy, random
+    random.seed(seed)
+    loss_list_copy = copy.deepcopy(loss_list)
+    random.shuffle(loss_list_copy)
+    return loss_list_copy[:k]
+
 # def get_imbalanced():
