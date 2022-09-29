@@ -20,7 +20,7 @@ random.seed(seed)
 torch.random.manual_seed(seed)
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-save_path = f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final2/dataset1/seed{seed}'
+save_path = f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final2/cifar10_1000_2/seed{seed}'
 
 train_dataset = datasets.CIFAR10('/ailab_mat/personal/heo_yunjae/uncertainty-activelearning/SSAL/semi/data', 
                                          download=False,
