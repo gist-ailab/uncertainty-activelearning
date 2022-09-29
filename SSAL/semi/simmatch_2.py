@@ -292,19 +292,19 @@ if __name__ == "__main__":
     indexes = None
     for episode in range(args.episodes):
         if episode == 0:
-            init_data = '/home/bengio/NAS_AIlab_dataset/personal/heo_yunjae/uncertainty-activelearning/SSAL/SimCLR-2/runs/Sep21_17-20-02_ailab-server-bengio/checkpoints/sampled_idx.pkl'
+            init_data = '/home/bengio/ailab_mat/personal/heo_yunjae/uncertainty-activelearning/SSAL/SimCLR-2/runs/Sep26_13-30-46_ailab-server-bengio/checkpoints/sampled_idx.pkl'
             with open(init_data, 'rb') as f:
                 init_data_list = pickle.load(f)
-            init_data_idx = [data[1] for data in init_data_list]
+            init_data_idx = [data[1] for data in init_data_list][:100]
             ulbl_data_idx = [i for i in range(50000) if i not in init_data_idx]
-            init_data_idx = np.array(init_data_idx)
+            lbl_data_idx = np.array(init_data_idx)
             ulbl_data_idx = np.array(ulbl_data_idx)
-            indexes = [init_data_idx,ulbl_data_idx]
+            indexes = [lbl_data_idx,ulbl_data_idx]
             print(init_data_idx[:3])
             # print(len(init_data_idx))
-            indexes = None
+            # indexes = None
             
-            init_para = '/home/bengio/NAS_AIlab_dataset/personal/heo_yunjae/uncertainty-activelearning/SSAL/SimCLR-2/runs/Sep21_17-20-02_ailab-server-bengio/checkpoints/model.pth'
+            init_para = '/home/bengio/ailab_mat/personal/heo_yunjae/uncertainty-activelearning/SSAL/SimCLR-2/runs/Sep26_13-30-46_ailab-server-bengio/checkpoints/model.pth'
             init_state_dict = torch.load(init_para)
             init_state_dict = std_convert2(init_state_dict)
             # print(init_state_dict)

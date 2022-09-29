@@ -17,23 +17,15 @@ import random
 
 seed = 4
 random.seed(seed)
-torch.random.manual_seed(seed)
-os.environ["CUDA_VISIBLE_DEVICES"] = '1'
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-# independent한 subset a,b,c에 있어서 a,b의 성능과 a+c, b+c의 성능 경향 비교 실험
-# 1. a,b,c 나누기
-# 2. a,b로 학습하기
-# 3. a,b의 정확도 비교하기
-# 4. a+c, b+c로 학습하기
-# 5. a+c, b+c의 정확도 비교하기
-# 6. 결과 분석
+torch.manual_seed(seed)
+os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 # 1. a,b,c로 나누기
-train_dataset = datasets.CIFAR10('/home/bengio/NAS_AIlab_dataset/personal/heo_yunjae/uncertainty-activelearning/SSAL/semi/data', 
+train_dataset = datasets.CIFAR10('/ailab_mat/personal/heo_yunjae/uncertainty-activelearning/SSAL/semi/data', 
                                          download=False,
                                          transform=get_rand_augment('cifar10'))
-test_dataset = datasets.CIFAR10('/home/bengio/NAS_AIlab_dataset/personal/heo_yunjae/uncertainty-activelearning/SSAL/semi/data', 
+test_dataset = datasets.CIFAR10('/ailab_mat/personal/heo_yunjae/uncertainty-activelearning/SSAL/semi/data', 
                                          download=False,
                                          train = False,
                                          transform=get_test_augment('cifar10'))
@@ -41,9 +33,12 @@ test_dataset = datasets.CIFAR10('/home/bengio/NAS_AIlab_dataset/personal/heo_yun
 total_idx = [i for i in range(50000)]
 random.shuffle(total_idx)
 
-subset_a_idx = total_idx[:1000]
-subset_b_idx = total_idx[1000:2000]
-subset_c_idx = total_idx[2000:3000]
+with open('/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final/seed2/subset_a.pkl', 'rb') as f:
+    subset_a_idx = pickle.load(f)
+with open('/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final/seed2/subset_b.pkl', 'rb') as f:
+    subset_b_idx = pickle.load(f)
+with open('/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final/seed2/subset_c.pkl', 'rb') as f:
+    subset_c_idx = pickle.load(f)
 subset_a_sampler = SubsetRandomSampler(subset_a_idx)
 subset_b_sampler = SubsetRandomSampler(subset_b_idx)
 subset_c_sampler = SubsetRandomSampler(subset_c_idx)
@@ -84,7 +79,7 @@ if __name__ == "__main__":
     best_acc_b = 0
     best_acc_ac = 0
     best_acc_bc = 0
-    save_path = f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final/seed{seed}'
+    save_path = f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final2/cifar10_1000_2/seed{seed}'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
     
@@ -97,24 +92,24 @@ if __name__ == "__main__":
         
     for i in range(200):
         print('a------------------------------------------------')
-        train(i, model_a, subset_a_loader, criterion, optimizer_a)
+        train(i, model_a, subset_a_loader, criterion, optimizer_a, device)
         if i > 100:
-            best_acc_a = test(i, model_a, test_loader, criterion, save_path, 'a', best_acc_a)
+            best_acc_a = test(i, model_a, test_loader, criterion, save_path, 'a', best_acc_a, device)
         
         print('b------------------------------------------------')
-        train(i, model_b, subset_b_loader, criterion, optimizer_b)
+        train(i, model_b, subset_b_loader, criterion, optimizer_b, device)
         if i > 100:
-            best_acc_b = test(i, model_b, test_loader, criterion, save_path, 'b', best_acc_b)
+            best_acc_b = test(i, model_b, test_loader, criterion, save_path, 'b', best_acc_b, device)
 
         print('ac------------------------------------------------')
-        train(i, model_ac, subset_ac_loader, criterion, optimizer_ac)
+        train(i, model_ac, subset_ac_loader, criterion, optimizer_ac, device)
         if i > 100:
-            best_acc_ac = test(i, model_ac, test_loader, criterion, save_path, 'ac', best_acc_ac)
+            best_acc_ac = test(i, model_ac, test_loader, criterion, save_path, 'ac', best_acc_ac, device)
         
         print('bc------------------------------------------------')
-        train(i, model_bc, subset_bc_loader, criterion, optimizer_bc)
+        train(i, model_bc, subset_bc_loader, criterion, optimizer_bc, device)
         if i > 100:
-            best_acc_bc = test(i, model_bc, test_loader, criterion, save_path, 'bc', best_acc_bc)
+            best_acc_bc = test(i, model_bc, test_loader, criterion, save_path, 'bc', best_acc_bc, device)
     
     with open(save_path+f'/result.txt', 'a') as f:
         f.write(f"seed : {seed}, best_a : {best_acc_a}, best_b : {best_acc_b}, best_ac : {best_acc_ac}, best_bc : {best_acc_bc}\n")

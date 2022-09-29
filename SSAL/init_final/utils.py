@@ -11,10 +11,12 @@ from tqdm import tqdm
 import pickle
 from torchvision import datasets
 from torchvision import models
+from random import random, shuffle
+from torch.utils.data.sampler import SubsetRandomSampler
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+# device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-def train(epoch, model, train_loader, criterion, optimizer):
+def train(epoch, model, train_loader, criterion, optimizer, device):
     model.train()
     train_loss = 0
     correct = 0
@@ -35,7 +37,7 @@ def train(epoch, model, train_loader, criterion, optimizer):
         correct += predicted.eq(targets).sum().item()
         pbar.set_postfix({'loss':train_loss, 'acc':100*correct/total})
 
-def test(epoch, model, test_loader, criterion, save_path, sign, best_acc):
+def test(epoch, model, test_loader, criterion, save_path, sign, best_acc, device):
     model.eval()
     test_loss = 0
     correct = 0
@@ -59,7 +61,42 @@ def test(epoch, model, test_loader, criterion, save_path, sign, best_acc):
                 os.mkdir(os.path.join(save_path,sign))
             torch.save(model.state_dict(), os.path.join(save_path,sign,'model.pt'))
     return best_acc
-            
+
+def test_eval(epoch, model, test_loader, criterion, save_path, sign, best_acc, device):
+    model.eval()
+    test_loss = 0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        pbar = tqdm(test_loader)
+        for batch_idx, (inputs, targets) in enumerate(pbar):
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
+
+            test_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+            pbar.set_postfix({'loss':test_loss, 'acc':100*correct/total})
+        acc = 100*correct/total
+    return acc
+
+def query_algorithm(model, ulbl_loader, ulbl_idx, sign, device, K=1000):
+    model.eval()
+    conf_list = []
+    with torch.no_grad():
+        pbar = tqdm(ulbl_loader)
+        for i, (inputs, _) in enumerate(pbar):
+            inputs = inputs.to(device)
+            outputs = model(inputs)
+            confidence = torch.max(F.softmax(outputs, dim=-1))
+            conf_list.append((confidence, ulbl_idx[i]))
+    if sign=='lconf':
+        conf_list.sort(key=lambda x:x[0], reverse=False)
+    if sign=='mconf':
+        conf_list.sort(key=lambda x:x[0], reverse=True)
+    return [data[1] for data in conf_list][:K]
             
 def get_rand_augment(dataset):
     if dataset == 'cifar10':
