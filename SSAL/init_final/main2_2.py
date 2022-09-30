@@ -15,7 +15,8 @@ from utils import *
 from torch.utils.data.sampler import SubsetRandomSampler
 import random
 
-seed = 1
+seed = 6
+id = 0
 random.seed(seed)
 torch.manual_seed(seed)
 os.environ["CUDA_VISIBLE_DEVICES"] = '1'
@@ -33,11 +34,11 @@ test_dataset = datasets.CIFAR10('/ailab_mat/personal/heo_yunjae/uncertainty-acti
 total_idx = [i for i in range(50000)]
 random.shuffle(total_idx)
 
-with open('/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final/seed2/subset_a.pkl', 'rb') as f:
+with open(f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final2/subsets/cifar100_1/seed{id}/subset_a.pkl', 'rb') as f:
     subset_a_idx = pickle.load(f)
-with open('/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final/seed2/subset_b.pkl', 'rb') as f:
+with open(f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final2/subsets/cifar100_1/seed{id}/subset_b.pkl', 'rb') as f:
     subset_b_idx = pickle.load(f)
-with open('/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final/seed2/subset_c.pkl', 'rb') as f:
+with open(f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final2/subsets/cifar100_1/seed{id}/subset_c.pkl', 'rb') as f:
     subset_c_idx = pickle.load(f)
 subset_a_sampler = SubsetRandomSampler(subset_a_idx)
 subset_b_sampler = SubsetRandomSampler(subset_b_idx)
@@ -79,7 +80,7 @@ if __name__ == "__main__":
     best_acc_b = 0
     best_acc_ac = 0
     best_acc_bc = 0
-    save_path = f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final2/cifar10_1000_2/seed{seed}'
+    save_path = f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final2/cifar10_500/cifar10_500_{id}/seed{seed}'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
     
