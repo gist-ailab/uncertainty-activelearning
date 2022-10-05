@@ -15,20 +15,24 @@ from utils import *
 from torch.utils.data.sampler import SubsetRandomSampler
 import random
 
-seed = 2
+seed = 0
 random.seed(seed)
 torch.random.manual_seed(seed)
 
 total_idx = [i for i in range(50000)]
 random.shuffle(total_idx)
 
-subset_a_idx = total_idx[:500]
-subset_b_idx = total_idx[500:1000]
-subset_c_idx = total_idx[1000:1500]
+subset_a_idx = total_idx[:5000]
+subset_b_idx = total_idx[5000:10000]
+subset_c_idx = total_idx[10000:15000]
 subset_a_sampler = SubsetRandomSampler(subset_a_idx)
 subset_b_sampler = SubsetRandomSampler(subset_b_idx)
 subset_c_sampler = SubsetRandomSampler(subset_c_idx)
 
+save_path = f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final2/subsets/cifar100_10/'
+if not os.path.isdir(save_path):
+    os.mkdir(save_path)
+    
 save_path = f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final2/subsets/cifar100_10/seed{seed}'
 if not os.path.isdir(save_path):
     os.mkdir(save_path)
