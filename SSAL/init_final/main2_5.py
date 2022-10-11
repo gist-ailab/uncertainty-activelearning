@@ -16,10 +16,10 @@ from torch.utils.data.sampler import SubsetRandomSampler
 import random
 
 seed = 4
-id = 0
+id = 1
 random.seed(seed)
 torch.manual_seed(seed)
-os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ["CUDA_VISIBLE_DEVICES"] = '5'
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 # 1. a,b,c로 나누기

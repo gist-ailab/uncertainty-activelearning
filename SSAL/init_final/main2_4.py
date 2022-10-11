@@ -16,7 +16,7 @@ from torch.utils.data.sampler import SubsetRandomSampler
 import random
 
 seed = 3
-id = 0
+id = 1
 random.seed(seed)
 torch.manual_seed(seed)
 os.environ["CUDA_VISIBLE_DEVICES"] = '3'
