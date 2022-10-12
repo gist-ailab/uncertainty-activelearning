@@ -19,7 +19,7 @@ seed = 2
 id = 1
 random.seed(seed)
 torch.manual_seed(seed)
-os.environ["CUDA_VISIBLE_DEVICES"] = '2'
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 # 1. a,b,c로 나누기

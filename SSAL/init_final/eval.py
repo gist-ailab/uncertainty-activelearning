@@ -15,12 +15,14 @@ from utils import *
 from torch.utils.data.sampler import SubsetRandomSampler
 import random
 
+id = 0
 seed = 9
+data_amount = 500
 random.seed(seed)
 torch.random.manual_seed(seed)
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-save_path = f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final2/cifar10_1000_2/seed{seed}'
+save_path = f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/init_final2/cifar10_{data_amount}/cifar10_{data_amount}_{id}/seed{seed}'
 
 train_dataset = datasets.CIFAR10('/ailab_mat/personal/heo_yunjae/uncertainty-activelearning/SSAL/semi/data', 
                                          download=False,
