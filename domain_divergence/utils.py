@@ -112,7 +112,7 @@ def binary_train(epoch, model, train_loader, criterion, optimizer, device):
         correct += predicted.eq(targets).sum().item()
         pbar.set_postfix({'loss':train_loss/len(train_loader), 'acc':100*correct/total})
 
-def domain_gap_prediction(model, ulbl_loader, sign, device, K):
+def domain_gap_prediction(model, ulbl_loader, ulbl_idx, sign, device, K):
     model.eval()
     if sign=='low_conf':
         conf_list = torch.tensor([]).to(device)
@@ -140,7 +140,7 @@ def domain_gap_prediction(model, ulbl_loader, sign, device, K):
             arg = entr_list.argsort().cpu().numpy()
         return list(arg[-K:])
     
-    if sign=='domain_diverge':
+    if sign=='high_gap':
         div_list = torch.tensor([]).to(device)
         with torch.no_grad():
             pbar = tqdm(ulbl_loader)
@@ -148,17 +148,20 @@ def domain_gap_prediction(model, ulbl_loader, sign, device, K):
                 inputs = inputs.to(device)
                 outputs = model(inputs)
                 _, predicted = outputs.max(1)
-                print(predicted.shape)
-                div_list = torch.cat((div_list, predicted.values()), 0)
+                # print(predicted.shape)
+                div_list = torch.cat((div_list, predicted), 0)
             arg = div_list.argsort().cpu().numpy()
         return list(arg[-K:])
+    
+    if sign=='random':
+        return list(np.random.randint(0, len(ulbl_idx), size=K))
 
 def model_freeze(model):
-    for _,child in model.named_childeren():
+    for _,child in model.named_children():
         for param in child.parameters():
             param.requires_grad = False
 
 def model_unfreeze(model):
-    for _,child in model.named_childeren():
+    for _,child in model.named_children():
         for param in child.parameters():
             param.requires_grad = True

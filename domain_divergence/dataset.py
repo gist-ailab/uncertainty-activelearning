@@ -12,8 +12,8 @@ import torch.nn.functional as F
 class DATALOADERS():
     def __init__(self, lbl_idx, ulbl_idx, batch_size, train_transform, test_transform, dataset='cifar10', datapath = ''):
         if dataset == 'cifar10':
-            train_dataset = datasets.CIFAR10(datapath, download=True, transform=train_transform)
-            test_dataset = datasets.CIFAR10(datapath, download=True, transform=test_transform, train=False)
+            train_dataset = datasets.CIFAR10(datapath, download=False, transform=train_transform)
+            test_dataset = datasets.CIFAR10(datapath, download=False, transform=test_transform, train=False)
         lbl_subset = SubsetRandomSampler(lbl_idx)
         ulbl_subset = SubsetRandomSampler(ulbl_idx)
         
@@ -31,7 +31,7 @@ class BINARYSET(Dataset):
     def __init__(self, lbl_idx, ulbl_idx, transform, dataset='cifar10', datapath=''):
         if dataset == 'cifar10':
             self.train_dataset = datasets.CIFAR10(datapath, download=True, transform=transform)
-        self.label_info = [0 for i in range(len(lbl_idx)+len(ulbl_idx))]
+        self.label_info = [0 for _ in range(len(lbl_idx)+len(ulbl_idx))]
         for idx in lbl_idx:
             self.label_info[idx] = 1
         for idx in ulbl_idx:
@@ -41,7 +41,7 @@ class BINARYSET(Dataset):
         return len(self.label_info)
         
     def __getitem__(self, idx):
-        data, lbl = self.train_dataset[idx], self.label_info[idx]
+        data, lbl = self.train_dataset[idx][0], self.label_info[idx]
         return data,lbl
 
 def BINARYLOADER(lbl_idx, ulbl_idx, batch_size, transform, dataset='cifar10', datapath=''):
