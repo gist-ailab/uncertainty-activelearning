@@ -6,7 +6,6 @@ import torchvision
 import numpy as np
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
-import argparse
 from tqdm import tqdm
 import pickle
 from torchvision import datasets
@@ -15,120 +14,98 @@ from utils import *
 from torch.utils.data import Subset
 from torch.utils.data.sampler import SubsetRandomSampler, SequentialSampler
 import random
+import argparse
 
-seed = 2
-random.seed(seed)
-torch.random.manual_seed(seed)
-os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+parser = argparse.ArgumentParser(description='Active Learning')
+parser.add_argument('--data_path', type=str, default='./datas')
+parser.add_argument('--save_path', type=str, default='./saves')
+parser.add_argument('--epoch', type=int, default=200)
+parser.add_argument('--episode', type=int, default=10)
+parser.add_argument('--seed', type=int, default=None)
+parser.add_argument('--gpu', type=str, default='0')
+parser.add_argument('--dataset', type=str, choices=['cifar10', 'stl10'], default='cifar10')
+parser.add_argument('--query_algorithm', type=str, choices=['high_conf', 'low_conf', 'balance', 'random', 'high_entropy'], default='low_conf')
+parser.add_argument('--addendum', type=int, default=1000)
+parser.add_argument('--batch_size', type=int, default=64)
+
+args = parser.parse_args()
+
+if not args.seed==None:
+    random.seed(args.seed)
+    torch.random.manual_seed(args.seed)
+os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-episode = 10
+episode = args.episode
+if not os.path.isdir(args.data_path):
+    os.mkdir(args.data_path)
+if not os.path.isdir(args.save_path):
+    os.mkdir(args.save_path)
 
-# random과 least conf와 most conf의 episode에 따른 성능 비교 실험
-# 1. init 뽑기
-# 2. init으로 학습하기
-# 3. 각각의 query 알고리즘에 따라 학습 진행하기
-# 4. query 알고리즘 별 episode 마다의 성능 비교하기
+if args.dataset == 'cifar10':
+    train_dataset = datasets.CIFAR10(args.data_path, 
+                                download=True,
+                                transform=get_rand_augment('cifar10'))
+    test_dataset = datasets.CIFAR10(args.data_path, 
+                                    download=True,
+                                    train = False,
+                                    transform=get_test_augment('cifar10'))
+    num_class = 10
+if args.dataset == 'stl10':
+    train_dataset = datasets.stl10(args.data_path, 
+                                download=True,
+                                transform=get_rand_augment('stl10'))
+    test_dataset = datasets.stl10(args.data_path, 
+                                    download=True,
+                                    train = False,
+                                    transform=get_test_augment('stl10'))
+    num_class = 10
 
-# 1. a,b,c로 나누기
-train_dataset = datasets.CIFAR10('/ailab_mat/personal/heo_yunjae/uncertainty-activelearning/SSAL/semi/data', 
-                                         download=False,
-                                         transform=get_rand_augment('cifar10'))
-test_dataset = datasets.CIFAR10('/ailab_mat/personal/heo_yunjae/uncertainty-activelearning/SSAL/semi/data', 
-                                         download=False,
-                                         train = False,
-                                         transform=get_test_augment('cifar10'))
-
-total_idx = [i for i in range(50000)]
+data_length = len(train_dataset)
+total_idx = [i for i in range(data_length)]
 random.shuffle(total_idx)
-subset_a_idx = total_idx[:1000]
-test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
+subset_idx = total_idx[:args.addendum]
+test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
 if __name__ == "__main__":
-    best_acc_random = 0
-    best_acc_lconf = 0
-    best_acc_mconf = 0
-    save_path = f'/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/QA_comparison/seed{seed}'
+    best_acc = 0
+    save_path = os.path.join(args.save_path, f'seed{args.seed}')
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
     
-    random_lbl_set = subset_a_idx
-    lconf_lbl_set = subset_a_idx
-    mconf_lbl_set = subset_a_idx
+    lbl_set = subset_idx
     
     for epi in range(episode):
         print(f'episode : {epi}------------------------------------------------')
         curr_path = os.path.join(save_path, f'episode{epi}')
         if not os.path.isdir(curr_path):
             os.mkdir(curr_path)
-        with open(curr_path+'/random_lbl_set.pkl', 'wb') as f:
-            pickle.dump(random_lbl_set, f)
-        with open(curr_path+'/lconf_lbl_set.pkl', 'wb') as f:
-            pickle.dump(lconf_lbl_set, f)
-        with open(curr_path+'/mconf_lbl_set.pkl', 'wb') as f:
-            pickle.dump(mconf_lbl_set, f)
+        with open(curr_path+'/lbl_set.pkl', 'wb') as f:
+            pickle.dump(lbl_set, f)
         
-        random_sampler = SubsetRandomSampler(random_lbl_set)
-        random_loader = DataLoader(train_dataset, batch_size=64, sampler=random_sampler,
-                                    drop_last=True, shuffle=False)
-        lconf_sampler = SubsetRandomSampler(lconf_lbl_set)
-        lconf_loader = DataLoader(train_dataset, batch_size=64, sampler=lconf_sampler,
-                                    drop_last=True, shuffle=False)
-        mconf_sampler = SubsetRandomSampler(mconf_lbl_set)
-        mconf_loader = DataLoader(train_dataset, batch_size=64, sampler=mconf_sampler,
+        train_sampler = SubsetRandomSampler(lbl_set)
+        train_loader = DataLoader(train_dataset, batch_size=args.batch_size, sampler=train_sampler,
                                     drop_last=True, shuffle=False)
         
-        model_random = models.resnet18()
-        model_random = model_random.to(device)
-
-        model_lconf = models.resnet18()
-        model_lconf = model_lconf.to(device)
-
-        model_mconf = models.resnet18()
-        model_mconf = model_mconf.to(device)
+        model = models.resnet18()
+        model.fc = nn.Linear(512, num_class)
+        model = model.to(device)
 
         criterion = nn.CrossEntropyLoss()
-        optimizer_random = torch.optim.Adam(model_random.parameters(), lr=1e-3, weight_decay=5e-4)
-        optimizer_lconf = torch.optim.Adam(model_lconf.parameters(), lr=1e-3, weight_decay=5e-4)
-        optimizer_mconf = torch.optim.Adam(model_mconf.parameters(), lr=1e-3, weight_decay=5e-4)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
         
-        for i in range(200):
-            print('random------------------------------------------------')
-            train(i, model_random, random_loader, criterion, optimizer_random)
-            if i > 100:
-                best_acc_random = test(i, model_random, test_loader, criterion, curr_path, 'random', best_acc_random)
-            print('lconf------------------------------------------------')
-            train(i, model_lconf, lconf_loader, criterion, optimizer_lconf)
-            if i > 100:
-                best_acc_lconf = test(i, model_lconf, test_loader, criterion, curr_path, 'lconf', best_acc_lconf)
-            print('mconf------------------------------------------------')
-            train(i, model_mconf, mconf_loader, criterion, optimizer_mconf)
-            if i > 100:
-                best_acc_mconf = test(i, model_mconf, test_loader, criterion, curr_path, 'mconf', best_acc_mconf)
+        for i in range(args.epoch):
+            train(i, model, train_loader, criterion, optimizer, device)
+            acc = test(i, model, test_loader, criterion, curr_path, args.query_algorithm, device)
         
-        random_ulbl_set = [i for i in range(50000) if i not in random_lbl_set]
-        lconf_ulbl_set = [i for i in range(50000) if i not in lconf_lbl_set]
-        mconf_ulbl_set = [i for i in range(50000) if i not in mconf_lbl_set]
+        ulbl_set = [i for i in range(data_length) if i not in lbl_set]
 
-        random_model_para = torch.load(os.path.join(curr_path, 'random', 'model.pt'))
-        model_random.load_state_dict(random_model_para)
-        lconf_model_para = torch.load(os.path.join(curr_path, 'lconf', 'model.pt'))
-        model_lconf.load_state_dict(lconf_model_para)
-        mconf_model_para = torch.load(os.path.join(curr_path, 'mconf', 'model.pt'))
-        model_mconf.load_state_dict(mconf_model_para)
+        model_para = torch.load(os.path.join(curr_path, args.query_algorithm, 'model.pt'))
+        model.load_state_dict(model_para)
         
-        #random
-        random.shuffle(random_ulbl_set)
-        random_lbl_set = random_lbl_set + random_ulbl_set[:1000]
-        #lconf
-        lconf_ulbl_subset = Subset(train_dataset, lconf_ulbl_set)
-        lconf_ulbl_sampler = SequentialSampler(lconf_ulbl_subset)
-        lconf_ulbl_loader = DataLoader(train_dataset, batch_size=1, sampler=lconf_ulbl_sampler, shuffle=False)
-        lconf_lbl_set = lconf_lbl_set + query_algorithm(model_lconf, lconf_ulbl_loader, lconf_ulbl_set, 'lconf')
-        #mconf
-        mconf_ulbl_subset = Subset(train_dataset, mconf_ulbl_set)
-        mconf_ulbl_sampler = SequentialSampler(mconf_ulbl_subset)
-        mconf_ulbl_loader = DataLoader(train_dataset, batch_size=1, sampler=mconf_ulbl_sampler, shuffle=False)
-        mconf_lbl_set = mconf_lbl_set + query_algorithm(model_mconf, mconf_ulbl_loader, mconf_ulbl_set, 'mconf')
+        ulbl_subset = Subset(train_dataset, ulbl_set)
+        ulbl_sampler = SequentialSampler(ulbl_subset)
+        ulbl_loader = DataLoader(train_dataset, batch_size=args.batch_size, sampler=ulbl_sampler, shuffle=False)
+        lbl_set = lbl_set + query_algorithm(model, ulbl_loader, ulbl_set, args.query_algorithm, device, args.addendum)
     
         with open(curr_path+f'/result.txt', 'a') as f:
-            f.write(f"seed : {seed}, best_random : {best_acc_random}, best_lconf : {best_acc_lconf}, best_mconf : {best_acc_mconf}\n")
+            f.write(f"seed : {args.seed}, {args.query_algorithm} : {acc}\n")

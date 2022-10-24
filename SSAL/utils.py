@@ -78,7 +78,7 @@ def get_balanced_sim(loss_list, k=1000):
     n = len(loss_list)//k
     return [loss_list[i][1] for i in range(0,len(loss_list),n)]
 
-def get_step_inc(loss_list, k=1000):
+def get_step_increase(loss_list, k=1000):
     step = 10
     sampled_list = []
     n = k//step
@@ -87,7 +87,7 @@ def get_step_inc(loss_list, k=1000):
         sampled_list += loss_list[(step-i)*n:(step-1-i)*n:-1]
     return sampled_list
 
-def get_step_dec(loss_list, k=1000):
+def get_step_decrease(loss_list, k=1000):
     step = 10
     sampled_list = []
     n = k//step

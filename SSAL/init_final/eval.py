@@ -16,8 +16,8 @@ from torch.utils.data.sampler import SubsetRandomSampler
 import random
 
 id = 0
-seed = 9
-data_amount = 500
+seed = 4
+data_amount = 5000
 random.seed(seed)
 torch.random.manual_seed(seed)
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'

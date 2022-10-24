@@ -15,19 +15,11 @@ from utils import *
 from torch.utils.data.sampler import SubsetRandomSampler
 import random
 
-seed = 4
+seed = 0
 random.seed(seed)
 torch.random.manual_seed(seed)
-os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-# independent한 subset a,b,c에 있어서 a,b의 성능과 a+c, b+c의 성능 경향 비교 실험
-# 1. a,b,c 나누기
-# 2. a,b로 학습하기
-# 3. a,b의 정확도 비교하기
-# 4. a+c, b+c로 학습하기
-# 5. a+c, b+c의 정확도 비교하기
-# 6. 결과 분석
 
 # 1. a,b,c로 나누기
 train_dataset = datasets.CIFAR10('/home/bengio/NAS_AIlab_dataset/personal/heo_yunjae/uncertainty-activelearning/SSAL/semi/data', 

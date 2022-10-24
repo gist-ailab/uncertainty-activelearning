@@ -1,18 +1,9 @@
-import os,sys
+import os
 import torch
-import torch.nn as nn
 import torch.nn.functional as F 
-import torchvision
 import numpy as np
-from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
-import argparse
 from tqdm import tqdm
-import pickle
-from torchvision import datasets
-from torchvision import models
-from random import random, shuffle
-from torch.utils.data.sampler import SubsetRandomSampler
 
 # device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -35,9 +26,9 @@ def train(epoch, model, train_loader, criterion, optimizer, device):
         _, predicted = outputs.max(1)
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
-        pbar.set_postfix({'loss':train_loss, 'acc':100*correct/total})
+        pbar.set_postfix({'loss':train_loss/len(train_loader), 'acc':100*correct/total})
 
-def test(epoch, model, test_loader, criterion, save_path, sign, best_acc, device):
+def test(epoch, model, test_loader, criterion, save_path, sign, device):
     model.eval()
     test_loss = 0
     correct = 0
@@ -53,14 +44,12 @@ def test(epoch, model, test_loader, criterion, save_path, sign, best_acc, device
             _, predicted = outputs.max(1)
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
-            pbar.set_postfix({'loss':test_loss, 'acc':100*correct/total})
+            pbar.set_postfix({'loss':test_loss/len(test_loader), 'acc':100*correct/total})
         acc = 100*correct/total
-        if acc > best_acc:
-            best_acc = acc
-            if not os.path.isdir(os.path.join(save_path,sign)):
-                os.mkdir(os.path.join(save_path,sign))
-            torch.save(model.state_dict(), os.path.join(save_path,sign,'model.pt'))
-    return best_acc
+        if not os.path.isdir(os.path.join(save_path,sign)):
+            os.mkdir(os.path.join(save_path,sign))
+        torch.save(model.state_dict(), os.path.join(save_path,sign,'model.pt'))
+    return acc
 
 def test_eval(epoch, model, test_loader, criterion, save_path, sign, best_acc, device):
     model.eval()
@@ -82,21 +71,59 @@ def test_eval(epoch, model, test_loader, criterion, save_path, sign, best_acc, d
         acc = 100*correct/total
     return acc
 
-def query_algorithm(model, ulbl_loader, ulbl_idx, sign, device, K=1000):
+def query_algorithm(model, ulbl_loader, ulbl_idx, sign, device, K):
     model.eval()
-    conf_list = []
-    with torch.no_grad():
-        pbar = tqdm(ulbl_loader)
-        for i, (inputs, _) in enumerate(pbar):
-            inputs = inputs.to(device)
-            outputs = model(inputs)
-            confidence = torch.max(F.softmax(outputs, dim=-1))
-            conf_list.append((confidence, ulbl_idx[i]))
-    if sign=='lconf':
-        conf_list.sort(key=lambda x:x[0], reverse=False)
-    if sign=='mconf':
-        conf_list.sort(key=lambda x:x[0], reverse=True)
-    return [data[1] for data in conf_list][:K]
+    
+    if sign=='high_conf':
+        conf_list = torch.tensor([]).to(device)
+        with torch.no_grad():
+            pbar = tqdm(ulbl_loader)
+            for i, (inputs, _) in enumerate(pbar):
+                inputs = inputs.to(device)
+                outputs = model(inputs)
+                confidence = torch.max(F.softmax(outputs, dim=1),dim=1)
+                conf_list = torch.cat((conf_list,confidence.values),0)
+            arg = conf_list.argsort().cpu().numpy()
+        return list(arg[-K:])
+    
+    if sign=='low_conf':
+        conf_list = torch.tensor([]).to(device)
+        with torch.no_grad():
+            pbar = tqdm(ulbl_loader)
+            for i, (inputs, _) in enumerate(pbar):
+                inputs = inputs.to(device)
+                outputs = model(inputs)
+                confidence = torch.max(F.softmax(outputs, dim=1),dim=1)
+                conf_list = torch.cat((conf_list,confidence.values),0)
+            arg = conf_list.argsort().cpu().numpy()
+        return list(arg[:K])
+    
+    if sign=='balance':
+        arg = conf_list.argsort().cpu().numpy()
+        l = []
+        for i in range(0, len(ulbl_idx), len(ulbl_idx)//K):
+            l.append(i)
+        return list(arg[l])
+    
+    if sign=='random':
+        return list(np.random.randint(0, len(ulbl_idx), size=K))
+    
+    if sign=='high_entropy':
+        entr_list = torch.tensor([]).to(device)
+        with torch.no_grad():
+            pbar = tqdm(ulbl_loader)
+            for i, (inputs, _) in enumerate(pbar):
+                inputs = inputs.to(device)
+                outputs = model(inputs)
+                outputs = F.softmax(outputs, dim=1)
+                entropy = -outputs*outputs.log()
+                entropy = entropy.sum(dim=1)
+                entr_list = torch.cat((entr_list,entropy),0)
+            arg = entr_list.argsort().cpu().numpy()
+        return list(arg[-K:])
+    
+    else:
+        raise Exception('invalid sign')
             
 def get_rand_augment(dataset):
     if dataset == 'cifar10':
