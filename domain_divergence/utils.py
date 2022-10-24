@@ -1,3 +1,4 @@
+import enum
 import os
 import torch
 import torch.nn.functional as F 
@@ -45,3 +46,119 @@ def get_test_augment(dataset):
         normalize,
     ])
     return test_transform
+
+def train(epoch, model, train_loader, criterion, optimizer, device):
+    model.train()
+    train_loss = 0
+    correct = 0
+    total = 0
+    pbar = tqdm(train_loader)
+    print(f'epoch : {epoch} _________________________________________________')
+    for batch_idx, (inputs, targets) in enumerate(pbar):
+        inputs, targets = inputs.to(device), targets.to(device)
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
+        loss.backward()
+        optimizer.step()
+
+        train_loss += loss.item()
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+        pbar.set_postfix({'loss':train_loss/len(train_loader), 'acc':100*correct/total})
+
+def test(epoch, model, test_loader, criterion, save_path, sign, device):
+    model.eval()
+    test_loss = 0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        pbar = tqdm(test_loader)
+        for batch_idx, (inputs, targets) in enumerate(pbar):
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
+
+            test_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+            pbar.set_postfix({'loss':test_loss/len(test_loader), 'acc':100*correct/total})
+        acc = 100*correct/total
+        if not os.path.isdir(os.path.join(save_path,sign)):
+            os.mkdir(os.path.join(save_path,sign))
+        torch.save(model.state_dict(), os.path.join(save_path,sign,'model.pt'))
+    return acc
+
+def binary_train(epoch, model, train_loader, criterion, optimizer, device):
+    model.train()
+    train_loss = 0
+    correct = 0
+    total = 0
+    pbar = tqdm(train_loader)
+    print(f'epoch : {epoch} _________________________________________________')
+    for batch_idx, (inputs, targets) in enumerate(pbar):
+        inputs, targets = inputs.to(device), targets.to(device)
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
+        loss.backward()
+        optimizer.step()
+
+        train_loss += loss.item()
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+        pbar.set_postfix({'loss':train_loss/len(train_loader), 'acc':100*correct/total})
+
+def domain_gap_prediction(model, ulbl_loader, sign, device, K):
+    model.eval()
+    if sign=='low_conf':
+        conf_list = torch.tensor([]).to(device)
+        with torch.no_grad():
+            pbar = tqdm(ulbl_loader)
+            for i, (inputs, _) in enumerate(pbar):
+                inputs = inputs.to(device)
+                outputs = model(inputs)
+                confidence = torch.max(F.softmax(outputs, dim=1),dim=1)
+                conf_list = torch.cat((conf_list,confidence.values),0)
+            arg = conf_list.argsort().cpu().numpy()
+        return list(arg[:K])
+    
+    if sign=='high_entropy':
+        entr_list = torch.tensor([]).to(device)
+        with torch.no_grad():
+            pbar = tqdm(ulbl_loader)
+            for i, (inputs, _) in enumerate(pbar):
+                inputs = inputs.to(device)
+                outputs = model(inputs)
+                outputs = F.softmax(outputs, dim=1)
+                entropy = -outputs*outputs.log()
+                entropy = entropy.sum(dim=1)
+                entr_list = torch.cat((entr_list,entropy),0)
+            arg = entr_list.argsort().cpu().numpy()
+        return list(arg[-K:])
+    
+    if sign=='domain_diverge':
+        div_list = torch.tensor([]).to(device)
+        with torch.no_grad():
+            pbar = tqdm(ulbl_loader)
+            for i, (inputs, _) in enumerate(pbar):
+                inputs = inputs.to(device)
+                outputs = model(inputs)
+                _, predicted = outputs.max(1)
+                print(predicted.shape)
+                div_list = torch.cat((div_list, predicted.values()), 0)
+            arg = div_list.argsort().cpu().numpy()
+        return list(arg[-K:])
+
+def model_freeze(model):
+    for _,child in model.named_childeren():
+        for param in child.parameters():
+            param.requires_grad = False
+
+def model_unfreeze(model):
+    for _,child in model.named_childeren():
+        for param in child.parameters():
+            param.requires_grad = True
