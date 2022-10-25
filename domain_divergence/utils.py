@@ -148,7 +148,7 @@ def domain_gap_prediction(model, ulbl_loader, ulbl_idx, sign, device, K):
                 inputs = inputs.to(device)
                 outputs = model(inputs)
                 confidence = F.softmax(outputs, dim=1)[:,0]
-                div_list = torch.cat((conf_list,confidence),0)
+                div_list = torch.cat((div_list,confidence),0)
             arg = div_list.argsort().cpu().numpy()
         return list(arg[:K])
     
