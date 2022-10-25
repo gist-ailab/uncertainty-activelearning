@@ -105,7 +105,7 @@ if __name__ == "__main__":
         ulbl_subset = Subset(train_dataset, ulbl_set)
         ulbl_sampler = SequentialSampler(ulbl_subset)
         ulbl_loader = DataLoader(train_dataset, batch_size=args.batch_size, sampler=ulbl_sampler, shuffle=False)
-        lbl_set = lbl_set + query_algorithm(model, ulbl_loader, ulbl_set, args.query_algorithm, device, args.addendum)
+        lbl_set = lbl_set + uldl_idx[query_algorithm(model, ulbl_loader, ulbl_set, args.query_algorithm, device, args.addendum)]
     
         with open(curr_path+f'/result.txt', 'a') as f:
             f.write(f"seed : {args.seed}, {args.query_algorithm} : {acc}\n")

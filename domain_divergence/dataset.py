@@ -14,12 +14,12 @@ class DATALOADERS():
         if dataset == 'cifar10':
             train_dataset = datasets.CIFAR10(datapath, download=False, transform=train_transform)
             test_dataset = datasets.CIFAR10(datapath, download=False, transform=test_transform, train=False)
-        lbl_subset = SubsetRandomSampler(lbl_idx)
-        ulbl_subset = SubsetRandomSampler(ulbl_idx)
+        lbl_subset = Subset(train_dataset, lbl_idx)
+        ulbl_subset = Subset(train_dataset,ulbl_idx)
         
-        self.lbl_train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=lbl_subset,
-                                      drop_last=True, shuffle=False)
-        self.ulbl_train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=ulbl_subset,
+        self.lbl_train_loader = DataLoader(lbl_subset, batch_size=batch_size, sampler=lbl_subset,
+                                      drop_last=True, shuffle=True)
+        self.ulbl_train_loader = DataLoader(ulbl_subset, batch_size=batch_size, sampler=ulbl_subset,
                                        drop_last=True, shuffle=False)
         self.test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
         

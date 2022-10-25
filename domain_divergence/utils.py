@@ -140,18 +140,17 @@ def domain_gap_prediction(model, ulbl_loader, ulbl_idx, sign, device, K):
             arg = entr_list.argsort().cpu().numpy()
         return list(arg[-K:])
     
-    if sign=='high_gap':
+    if sign=='high_unseen':
         div_list = torch.tensor([]).to(device)
         with torch.no_grad():
             pbar = tqdm(ulbl_loader)
             for i, (inputs, _) in enumerate(pbar):
                 inputs = inputs.to(device)
                 outputs = model(inputs)
-                _, predicted = outputs.max(1)
-                # print(predicted.shape)
-                div_list = torch.cat((div_list, predicted), 0)
+                confidence = F.softmax(outputs, dim=1)[:,0]
+                div_list = torch.cat((conf_list,confidence),0)
             arg = div_list.argsort().cpu().numpy()
-        return list(arg[-K:])
+        return list(arg[:K])
     
     if sign=='random':
         return list(np.random.randint(0, len(ulbl_idx), size=K))

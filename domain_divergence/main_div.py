@@ -1,5 +1,6 @@
 import os,sys
 from sched import scheduler
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -17,13 +18,13 @@ import utils
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/data')
 parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/domian_divergence')
-parser.add_argument('--epoch', type=int, default=1)
-parser.add_argument('--epoch2', type=int, default=1)
+parser.add_argument('--epoch', type=int, default=200)
+parser.add_argument('--epoch2', type=int, default=200)
 parser.add_argument('--episode', type=int, default=10)
 parser.add_argument('--seed', type=int, default=0)
 parser.add_argument('--gpu', type=str, default='0')
 parser.add_argument('--dataset', type=str, choices=['cifar10', 'stl10'], default='cifar10')
-parser.add_argument('--query_algorithm', type=str, choices=['high_gap', 'low_conf', 'high_entropy', 'random'], default='high_gap')
+parser.add_argument('--query_algorithm', type=str, choices=['high_unseen', 'low_conf', 'high_entropy', 'random'], default='high_unseen')
 parser.add_argument('--addendum', type=int, default=1000)
 parser.add_argument('--batch_size', type=int, default=64)
 
@@ -87,34 +88,40 @@ if __name__ == "__main__":
         lbl_scheduler = MultiStepLR(lbl_optimizer, milestones=[160])
         
         bn_optimzier = torch.optim.Adam(binary_model.parameters(), lr=1e-3, weight_decay=5e-4)
-        bn_scheduler = MultiStepLR(bn_optimzier, milestones=[40])
+        bn_scheduler = MultiStepLR(bn_optimzier, milestones=[160])
             
-        lbl_idx_path = os.path.join(save_path, f'epoch{i}')
-        ulbl_idx_path = os.path.join(save_path, f'epoch{i}')
-        if not os.path.isdir(lbl_idx_path):
-            os.mkdir(lbl_idx_path)
-        if not os.path.isdir(ulbl_idx_path):
-            os.mkdir(ulbl_idx_path)
-        with open(lbl_idx_path+'/lbl_idx.pkl', 'wb') as f:
+        curr_path = os.path.join(save_path, f'epoch{i}')
+        if not os.path.isdir(curr_path):
+            os.mkdir(curr_path)
+
+        with open(curr_path+'/lbl_idx.pkl', 'wb') as f:
             pickle.dump(lbl_idx, f)
-        with open(ulbl_idx_path+'/ulbl_idx.pkl', 'wb') as f:
+        with open(curr_path+'/ulbl_idx.pkl', 'wb') as f:
             pickle.dump(ulbl_idx, f)
         
         print('main classification -------------------------------------------------------')
         for j in range(args.epoch):
             utils.train(j, main_model, lbl_loader, criterion, lbl_optimizer, device)
-            acc = utils.test(j, main_model, test_loader, criterion, save_path, args.dataset, device)
-        
-        utils.model_freeze(base_model)
+            acc = utils.test(j, main_model, test_loader, criterion, curr_path, args.dataset, device)
+        with open(curr_path+'total_acc.txt', 'a') as f:
+            f.write(f'seed : {args.seed}, epoch : {i}, acc : {acc}\n')
+            
         #2. 학습된 모델을 이용하여 train에 속한지 아닌지를 확인하는 binary classification을 진행
-        
         print('binary classification -------------------------------------------------------')
+        utils.model_freeze(base_model)
         for j in range(args.epoch2):
             utils.binary_train(j, binary_model, binary_loader, criterion, bn_optimzier, device)
         #3. binary classification의 결과를 바탕으로 데이터를 선별(confidence? entropy?)
-        selected_idx = utils.domain_gap_prediction(binary_model, ulbl_loader, ulbl_idx, args.query_algorithm, device, args.addendum)
+        selected_ulb_idx = utils.domain_gap_prediction(binary_model, ulbl_loader, ulbl_idx, args.query_algorithm, device, args.addendum)
         utils.model_unfreeze(base_model)
         
-        lbl_idx = lbl_idx + selected_idx
-        ulbl_idx = [idx for idx in ulbl_idx if not idx in selected_idx]
+        
+        lbl_idx = np.array(lbl_idx)
+        ulbl_idx = np.array(ulbl_idx)
+        
+        selected_idx = ulbl_idx[selected_ulb_idx]
+        # lbl_idx = lbl_idx + selected_idx
+        lbl_idx = np.concatenate((lbl_idx, selected_idx))
+        ulbl_idx = np.delete(ulbl_idx, selected_ulb_idx)
+        # ulbl_idx = [idx for idx in ulbl_idx if not idx in selected_idx]
         
