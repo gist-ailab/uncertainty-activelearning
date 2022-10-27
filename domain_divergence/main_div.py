@@ -87,7 +87,7 @@ if __name__ == "__main__":
         lbl_optimizer = torch.optim.Adam(main_model.parameters(), lr=1e-3, weight_decay=5e-4)
         lbl_scheduler = MultiStepLR(lbl_optimizer, milestones=[80])
         
-        bn_optimzier = torch.optim.Adam(binary_model.parameters(), lr=1e-3, weight_decay=5e-4)
+        bn_optimzier = torch.optim.Adam(binary_model.parameters(), lr=1e-4, weight_decay=5e-4)
         bn_scheduler = MultiStepLR(bn_optimzier, milestones=[80])
             
         curr_path = os.path.join(save_path, f'episode{i}')
