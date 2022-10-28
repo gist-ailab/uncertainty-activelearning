@@ -18,7 +18,7 @@ import utils
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/data')
 parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/domian_divergence')
-parser.add_argument('--epoch', type=int, default=100)
+parser.add_argument('--epoch', type=int, default=200)
 parser.add_argument('--epoch2', type=int, default=100)
 parser.add_argument('--episode', type=int, default=10)
 parser.add_argument('--seed', type=int, default=0)
@@ -44,9 +44,9 @@ episode = args.episode
 if not os.path.isdir(args.data_path):
     os.mkdir(args.data_path)
 if not args.seed==None:
-    save_path = os.path.join(args.save_path, f'seed{args.seed}')
+    save_path = os.path.join(args.save_path, f'seed{args.seed}',args.query_algorithm)
 else:
-    save_path = os.path.join(args.save_path, 'current')
+    save_path = os.path.join(args.save_path, 'current', args.query_alogrithm)
 if not os.path.isdir(save_path):
     os.mkdir(save_path)
 
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         
         criterion = nn.CrossEntropyLoss()
         lbl_optimizer = torch.optim.Adam(main_model.parameters(), lr=1e-3, weight_decay=5e-4)
-        lbl_scheduler = MultiStepLR(lbl_optimizer, milestones=[80])
+        lbl_scheduler = MultiStepLR(lbl_optimizer, milestones=[160])
         
         bn_optimzier = torch.optim.Adam(binary_model.parameters(), lr=1e-4, weight_decay=5e-4)
         bn_scheduler = MultiStepLR(bn_optimzier, milestones=[80])
@@ -109,13 +109,13 @@ if __name__ == "__main__":
         #2. 학습된 모델을 이용하여 train에 속한지 아닌지를 확인하는 binary classification을 진행
         if not (i == args.episode-1):
             print('binary classification -------------------------------------------------------')
-            # utils.model_freeze(base_model)
-            for j in range(args.epoch2):
-                utils.binary_train(j, binary_model, binary_loader, criterion, bn_optimzier, device)
+            if args.query_algorithm != 'random':
+                # utils.model_freeze(base_model)
+                for j in range(args.epoch2):
+                    utils.binary_train(j, binary_model, binary_loader, criterion, bn_optimzier, device)
+                # utils.model_unfreeze(base_model)
             #3. binary classification의 결과를 바탕으로 데이터를 선별(confidence? entropy?)
             selected_ulb_idx = utils.domain_gap_prediction(binary_model, ulbl_loader, ulbl_idx, args.query_algorithm, device, args.addendum)
-            # utils.model_unfreeze(base_model)
-            
             
             lbl_idx = np.array(lbl_idx)
             ulbl_idx = np.array(ulbl_idx)
