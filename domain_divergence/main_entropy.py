@@ -32,10 +32,7 @@ parser.add_argument('--lbl_smoothing', type=bool, default=False)
 
 args = parser.parse_args()
 
-#1. 1000개 랜덤하게 뽑아서 학습을 진행
-#2. 학습된 모델을 이용하여 train에 속한지 아닌지를 확인하는 binary classification을 진행
-#3. binary classification의 결과를 바탕으로 데이터를 선별(confidence? entropy?)
-#4. 선별된 데이터를 바탕으로 다시 모델을 학습하고 #2로 이동
+# entropy로 학습
 
 if not args.seed==None:
     random.seed(args.seed)
