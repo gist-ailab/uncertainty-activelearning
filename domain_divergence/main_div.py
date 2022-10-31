@@ -18,13 +18,13 @@ import utils
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/data')
 parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/domian_divergence')
-parser.add_argument('--epoch', type=int, default=200)
+parser.add_argument('--epoch', type=int, default=1)
 parser.add_argument('--epoch2', type=int, default=100)
 parser.add_argument('--episode', type=int, default=10)
 parser.add_argument('--seed', type=int, default=0)
 parser.add_argument('--gpu', type=str, default='0')
 parser.add_argument('--dataset', type=str, choices=['cifar10', 'stl10'], default='cifar10')
-parser.add_argument('--query_algorithm', type=str, choices=['high_unseen', 'low_conf', 'high_entropy', 'random'], default='high_unseen')
+parser.add_argument('--query_algorithm', type=str, choices=['kld', 'pad', 'jensen', 'low_conf', 'high_entropy', 'random'], default='jensen')
 parser.add_argument('--addendum', type=int, default=1000)
 parser.add_argument('--batch_size', type=int, default=64)
 
@@ -80,14 +80,16 @@ if __name__ == "__main__":
 
         main_model = nn.Sequential(base_model, main_fc)
         main_model = main_model.to(device)
+        
         binary_model = nn.Sequential(base_model, binary_fc)
+        binary_model = models.MLP()
         binary_model = binary_model.to(device)
         
         criterion = nn.CrossEntropyLoss()
         lbl_optimizer = torch.optim.Adam(main_model.parameters(), lr=1e-3, weight_decay=5e-4)
         lbl_scheduler = MultiStepLR(lbl_optimizer, milestones=[160])
         
-        bn_optimzier = torch.optim.Adam(binary_model.parameters(), lr=1e-4, weight_decay=5e-4)
+        bn_optimzier = torch.optim.Adam(binary_model.parameters(), lr=1e-3, weight_decay=5e-4)
         bn_scheduler = MultiStepLR(bn_optimzier, milestones=[80])
             
         curr_path = os.path.join(save_path, f'episode{i}')
@@ -115,8 +117,11 @@ if __name__ == "__main__":
             #         utils.binary_train(j, binary_model, binary_loader, criterion, bn_optimzier, device)
                 # utils.model_unfreeze(base_model)
             #3. binary classification의 결과를 바탕으로 데이터를 선별(confidence? entropy?)
-            criterion = nn.KLDivLoss(reduction='none')
-            selected_ulb_idx = utils.domain_gap_prediction(binary_model, ulbl_loader, ulbl_idx, args.query_algorithm, device, args.addendum)
+            if args.query_algorithm == 'kld' or args.query_algorithm == 'jensen':
+                query_criterion = nn.KLDivLoss(reduction='none')
+            else:
+                query_criterion = nn.CrossEntropyLoss()
+            selected_ulb_idx = utils.domain_gap_prediction(main_model, query_criterion, ulbl_loader, ulbl_idx, args.query_algorithm, device, args.addendum)
             
             lbl_idx = np.array(lbl_idx)
             ulbl_idx = np.array(ulbl_idx)

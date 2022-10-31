@@ -140,7 +140,23 @@ def domain_gap_prediction(model, criterion, ulbl_loader, ulbl_idx, sign, device,
             arg = entr_list.argsort().cpu().numpy()
         return list(arg[-K:])
     
-    if sign=='high_unseen':
+    if sign=='jensen':
+        div_list = torch.tensor([]).to(device)
+        with torch.no_grad():
+            pbar = tqdm(ulbl_loader)
+            for i, (inputs, targets) in enumerate(pbar):
+                inputs = inputs.to(device)
+                outputs = model(inputs)
+                print(outputs.shape)
+                print(targets.shape)
+                loss1 = criterion(outputs, targets)
+                loss2 = criterion(targets, outputs)
+                js_div = loss1+loss2
+                div_list = torch.cat((div_list,js_div),0)
+            arg = div_list.argsort().cpu().numpy()
+        return list(arg[:K])
+    
+    if sign=='kld':
         div_list = torch.tensor([]).to(device)
         with torch.no_grad():
             pbar = tqdm(ulbl_loader)
@@ -148,9 +164,21 @@ def domain_gap_prediction(model, criterion, ulbl_loader, ulbl_idx, sign, device,
                 inputs = inputs.to(device)
                 outputs = model(inputs)
                 loss1 = criterion(outputs, targets)
-                loss2 = criterion(targets, outputs)
-                js_div = loss1+loss2
-                div_list = torch.cat((div_list,js_div),0)
+                kld_div = loss1
+                div_list = torch.cat((div_list,kld_div),0)
+            arg = div_list.argsort().cpu().numpy()
+        return list(arg[:K])
+    
+    if sign=='pad':
+        div_list = torch.tensor([]).to(device)
+        with torch.no_grad():
+            pbar = tqdm(ulbl_loader)
+            for i, (inputs, targets) in enumerate(pbar):
+                inputs = inputs.to(device)
+                outputs = model(inputs)
+                loss1 = criterion(outputs, targets)
+                pad_div = loss1
+                div_list = torch.cat((div_list,pad_div),0)
             arg = div_list.argsort().cpu().numpy()
         return list(arg[:K])
     

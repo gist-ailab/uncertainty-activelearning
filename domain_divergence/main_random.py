@@ -77,6 +77,7 @@ if __name__ == "__main__":
 
         main_model = nn.Sequential(base_model, main_fc)
         main_model = main_model.to(device)
+        
         binary_model = nn.Sequential(base_model, binary_fc)
         binary_model = binary_model.to(device)
         
@@ -105,7 +106,11 @@ if __name__ == "__main__":
             
         #2. 학습된 모델을 이용하여 train에 속한지 아닌지를 확인하는 binary classification을 진행
         if not (i == args.episode-1):
-            selected_ulb_idx = utils.domain_gap_prediction(main_model, ulbl_loader, ulbl_idx, args.query_algorithm, device, args.addendum)
+            if args.query_algorithm == 'kld' or args.query_algorithm == 'jensen':
+                query_criterion = nn.KLDivLoss(reduction='none')
+            else:
+                query_criterion = nn.CrossEntropyLoss()
+            selected_ulb_idx = utils.domain_gap_prediction(main_model, query_criterion, ulbl_loader, ulbl_idx, args.query_algorithm, device, args.addendum)
             
             lbl_idx = np.array(lbl_idx)
             ulbl_idx = np.array(ulbl_idx)
