@@ -108,13 +108,14 @@ if __name__ == "__main__":
             
         #2. 학습된 모델을 이용하여 train에 속한지 아닌지를 확인하는 binary classification을 진행
         if not (i == args.episode-1):
-            print('binary classification -------------------------------------------------------')
-            if args.query_algorithm != 'random':
-                # utils.model_freeze(base_model)
-                for j in range(args.epoch2):
-                    utils.binary_train(j, binary_model, binary_loader, criterion, bn_optimzier, device)
+            # print('binary classification -------------------------------------------------------')
+            # if args.query_algorithm != 'random':
+            #     # utils.model_freeze(base_model)
+            #     for j in range(args.epoch2):
+            #         utils.binary_train(j, binary_model, binary_loader, criterion, bn_optimzier, device)
                 # utils.model_unfreeze(base_model)
             #3. binary classification의 결과를 바탕으로 데이터를 선별(confidence? entropy?)
+            criterion = nn.KLDivLoss(reduction='none')
             selected_ulb_idx = utils.domain_gap_prediction(binary_model, ulbl_loader, ulbl_idx, args.query_algorithm, device, args.addendum)
             
             lbl_idx = np.array(lbl_idx)

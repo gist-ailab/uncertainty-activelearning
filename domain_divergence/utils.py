@@ -112,7 +112,7 @@ def binary_train(epoch, model, train_loader, criterion, optimizer, device):
         correct += predicted.eq(targets).sum().item()
         pbar.set_postfix({'loss':train_loss/len(train_loader), 'acc':100*correct/total})
 
-def domain_gap_prediction(model, ulbl_loader, ulbl_idx, sign, device, K):
+def domain_gap_prediction(model, criterion, ulbl_loader, ulbl_idx, sign, device, K):
     model.eval()
     if sign=='low_conf':
         conf_list = torch.tensor([]).to(device)
@@ -144,11 +144,13 @@ def domain_gap_prediction(model, ulbl_loader, ulbl_idx, sign, device, K):
         div_list = torch.tensor([]).to(device)
         with torch.no_grad():
             pbar = tqdm(ulbl_loader)
-            for i, (inputs, _) in enumerate(pbar):
+            for i, (inputs, targets) in enumerate(pbar):
                 inputs = inputs.to(device)
                 outputs = model(inputs)
-                confidence = F.softmax(outputs, dim=1)[:,0]
-                div_list = torch.cat((div_list,confidence),0)
+                loss1 = criterion(outputs, targets)
+                loss2 = criterion(targets, outputs)
+                js_div = loss1+loss2
+                div_list = torch.cat((div_list,js_div),0)
             arg = div_list.argsort().cpu().numpy()
         return list(arg[:K])
     
