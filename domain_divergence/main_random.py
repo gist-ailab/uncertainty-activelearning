@@ -43,7 +43,7 @@ if not os.path.isdir(args.data_path):
 if not args.seed==None:
     save_path = os.path.join(args.save_path, f'seed{args.seed}',args.query_algorithm)
 else:
-    save_path = os.path.join(args.save_path, 'current', args.query_alogrithm)
+    save_path = os.path.join(args.save_path, 'current', args.query_algorithm)
 if not os.path.isdir(save_path):
     os.mkdir(save_path)
 
