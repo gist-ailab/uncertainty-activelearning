@@ -21,12 +21,12 @@ parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yu
 parser.add_argument('--epoch', type=int, default=200)
 parser.add_argument('--epoch2', type=int, default=100)
 parser.add_argument('--episode', type=int, default=10)
-parser.add_argument('--seed', type=int, default=0)
+parser.add_argument('--seed', type=int, default=None)
 parser.add_argument('--gpu', type=str, default='0')
 parser.add_argument('--dataset', type=str, choices=['cifar10', 'stl10'], default='cifar10')
 parser.add_argument('--query_algorithm', type=str, choices=['high_unseen', 'low_conf', 'high_entropy', 'random'], default='random')
 parser.add_argument('--addendum', type=int, default=1000)
-parser.add_argument('--batch_size', type=int, default=64)
+parser.add_argument('--batch_size', type=int, default=256)
 
 args = parser.parse_args()
 
@@ -98,11 +98,13 @@ if __name__ == "__main__":
             pickle.dump(ulbl_idx, f)
         
         print('main classification -------------------------------------------------------')
+        best_acc = 0
         for j in range(args.epoch):
             utils.train(j, main_model, lbl_loader, criterion, lbl_optimizer, device)
-            acc = utils.test(j, main_model, test_loader, criterion, curr_path, args.dataset, device)
+            acc = utils.test(j, main_model, test_loader, criterion, curr_path, args.dataset, device, best_acc)
+        if acc > best_acc: best_acc = acc
         with open(save_path+'/total_acc.txt', 'a') as f:
-            f.write(f'seed : {args.seed}, episode : {i}, acc : {acc}\n')
+            f.write(f'seed : {args.seed}, episode : {i}, acc : {best_acc}\n')
             
         #2. 학습된 모델을 이용하여 train에 속한지 아닌지를 확인하는 binary classification을 진행
         if not (i == args.episode-1):

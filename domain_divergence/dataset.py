@@ -29,11 +29,12 @@ class BINARYSET(Dataset):
     def __init__(self, lbl_idx, ulbl_idx, transform, dataset='cifar10', datapath=''):
         if dataset == 'cifar10':
             self.train_dataset = datasets.CIFAR10(datapath, download=False, transform=transform)
+            
         self.label_info = [0 for _ in range(len(lbl_idx)+len(ulbl_idx))]
         for idx in lbl_idx:
             self.label_info[idx] = 1
-        for idx in ulbl_idx:
-            self.label_info[idx] = 0
+        # for idx in ulbl_idx:
+        #     self.label_info[idx] = 0
         
     def __len__(self):
         return len(self.label_info)
@@ -41,8 +42,23 @@ class BINARYSET(Dataset):
     def __getitem__(self, idx):
         data, lbl = self.train_dataset[idx][0], self.label_info[idx]
         return data,lbl
+    
+class QUERYSET(Dataset):
+    def __init__(self, ulbl_idx, transform, dataset='cifar10', datapath=''):
+        if dataset == 'cifar10':
+            train_dataset = datasets.CIFAR10(datapath, download=False, transform=transform)
+            self.train_dataset = Subset(train_dataset, ulbl_idx)
+        
+    def __len__(self):
+        return len(self.train_dataset)
+    
+    def __getitem__(self, idx):
+        return self.train_dataset[idx][0], torch.tensor([1,0])
 
 def BINARYLOADER(lbl_idx, ulbl_idx, batch_size, transform, dataset='cifar10', datapath=''):
     binaryset = BINARYSET(lbl_idx, ulbl_idx, transform, dataset, datapath)
     binary_loader = DataLoader(binaryset, batch_size, shuffle=True)
-    return binary_loader
+    
+    queryset = QUERYSET(ulbl_idx, transform, dataset, datapath)
+    query_loader = DataLoader(queryset, batch_size, shuffle=False)
+    return binary_loader, query_loader

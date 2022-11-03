@@ -1,4 +1,3 @@
-import enum
 import os
 import torch
 import torch.nn.functional as F 
@@ -68,7 +67,7 @@ def train(epoch, model, train_loader, criterion, optimizer, device):
         correct += predicted.eq(targets).sum().item()
         pbar.set_postfix({'loss':train_loss/len(train_loader), 'acc':100*correct/total})
 
-def test(epoch, model, test_loader, criterion, save_path, sign, device):
+def test(epoch, model, test_loader, criterion, save_path, sign, device, best_acc):
     model.eval()
     test_loss = 0
     correct = 0
@@ -88,7 +87,8 @@ def test(epoch, model, test_loader, criterion, save_path, sign, device):
         acc = 100*correct/total
         if not os.path.isdir(os.path.join(save_path,sign)):
             os.mkdir(os.path.join(save_path,sign))
-        torch.save(model.state_dict(), os.path.join(save_path,sign,'model.pt'))
+        if acc > best_acc:
+            torch.save(model.state_dict(), os.path.join(save_path,sign,'model.pt'))
     return acc
 
 def binary_train(epoch, model, train_loader, criterion, optimizer, device):
@@ -97,9 +97,11 @@ def binary_train(epoch, model, train_loader, criterion, optimizer, device):
     correct = 0
     total = 0
     pbar = tqdm(train_loader)
+        
     print(f'epoch : {epoch} _________________________________________________')
     for batch_idx, (inputs, targets) in enumerate(pbar):
         inputs, targets = inputs.to(device), targets.to(device)
+        inputs = inputs.view(inputs.shape[0], -1)
         optimizer.zero_grad()
         outputs = model(inputs)
         loss = criterion(outputs, targets)
@@ -146,12 +148,12 @@ def domain_gap_prediction(model, criterion, ulbl_loader, ulbl_idx, sign, device,
             pbar = tqdm(ulbl_loader)
             for i, (inputs, targets) in enumerate(pbar):
                 inputs = inputs.to(device)
+                inputs = inputs.view(inputs.shape[0], -1)
+                targets = targets.to(device)
                 outputs = model(inputs)
-                print(outputs.shape)
-                print(targets.shape)
                 loss1 = criterion(outputs, targets)
                 loss2 = criterion(targets, outputs)
-                js_div = loss1+loss2
+                js_div = loss1[:,0]+loss2[:,0]
                 div_list = torch.cat((div_list,js_div),0)
             arg = div_list.argsort().cpu().numpy()
         return list(arg[:K])
@@ -162,9 +164,11 @@ def domain_gap_prediction(model, criterion, ulbl_loader, ulbl_idx, sign, device,
             pbar = tqdm(ulbl_loader)
             for i, (inputs, targets) in enumerate(pbar):
                 inputs = inputs.to(device)
+                inputs = inputs.view(inputs.shape[0], -1)
+                targets = targets.to(device)
                 outputs = model(inputs)
                 loss1 = criterion(outputs, targets)
-                kld_div = loss1
+                kld_div = loss1[:,0]
                 div_list = torch.cat((div_list,kld_div),0)
             arg = div_list.argsort().cpu().numpy()
         return list(arg[:K])
@@ -175,12 +179,14 @@ def domain_gap_prediction(model, criterion, ulbl_loader, ulbl_idx, sign, device,
             pbar = tqdm(ulbl_loader)
             for i, (inputs, targets) in enumerate(pbar):
                 inputs = inputs.to(device)
+                inputs = inputs.view(inputs.shape[0], -1)
+                targets = targets.to(device)
                 outputs = model(inputs)
                 loss1 = criterion(outputs, targets)
                 pad_div = loss1
                 div_list = torch.cat((div_list,pad_div),0)
             arg = div_list.argsort().cpu().numpy()
-        return list(arg[:K])
+        return list(arg[-K:])
     
     if sign=='random':
         return list(np.random.randint(0, len(ulbl_idx), size=K))
