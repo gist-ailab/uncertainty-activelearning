@@ -91,6 +91,30 @@ def test(epoch, model, test_loader, criterion, save_path, sign, device, best_acc
             torch.save(model.state_dict(), os.path.join(save_path,sign,'model.pt'))
     return acc
 
+def query_test(epoch, model, test_loader, criterion, save_path, sign, device, best_acc):
+    model.eval()
+    test_loss = 0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        pbar = tqdm(test_loader)
+        for batch_idx, (inputs, targets) in enumerate(pbar):
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
+
+            test_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+            pbar.set_postfix({'loss':test_loss/len(test_loader), 'acc':100*correct/total})
+        acc = 100*correct/total
+        if not os.path.isdir(os.path.join(save_path,sign)):
+            os.mkdir(os.path.join(save_path,sign))
+        if acc > best_acc:
+            torch.save(model.state_dict(), os.path.join(save_path,sign,'query_model.pt'))
+    return acc
+
 def binary_train(epoch, model, train_loader, criterion, optimizer, device):
     model.train()
     train_loss = 0

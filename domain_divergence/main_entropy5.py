@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import MultiStepLR
 import torchvision.transforms as transforms
-# import torchvision.models as models
+import torchvision.models as models
 from tqdm import tqdm
 from resnet import *
 import argparse
@@ -17,17 +17,17 @@ import utils
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/data')
-parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/domian_divergence/ls30')
+parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/domian_divergence')
 parser.add_argument('--epoch', type=int, default=200)
 parser.add_argument('--epoch2', type=int, default=200)
-parser.add_argument('--episode', type=int, default=9)
-parser.add_argument('--seed', type=int, default=0)
-parser.add_argument('--gpu', type=str, default='2')
+parser.add_argument('--episode', type=int, default=10)
+parser.add_argument('--seed', type=int, default=4)
+parser.add_argument('--gpu', type=str, default='5')
 parser.add_argument('--dataset', type=str, choices=['cifar10', 'stl10'], default='cifar10')
-parser.add_argument('--query_algorithm', type=str, choices=['high_unseen', 'low_conf', 'high_entropy', 'random'], default='low_conf')
+parser.add_argument('--query_algorithm', type=str, choices=['high_unseen', 'low_conf', 'high_entropy', 'random'], default='high_entropy')
 parser.add_argument('--addendum', type=int, default=1000)
 parser.add_argument('--batch_size', type=int, default=256)
-parser.add_argument('--lbl_smoothing', type=int, default=30)
+parser.add_argument('--lbl_smoothing', type=bool, default=False)
 
 args = parser.parse_args()
 
@@ -76,7 +76,7 @@ if __name__ == "__main__":
         query_model = query_model.to(device)
         
         main_criterion = nn.CrossEntropyLoss()
-        query_criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+        query_criterion = nn.CrossEntropyLoss(label_smoothing=0.2)
         
         main_optimizer = torch.optim.Adam(main_model.parameters(), lr=1e-3, weight_decay=5e-4)
         main_scheduler = MultiStepLR(main_optimizer, milestones=[160])

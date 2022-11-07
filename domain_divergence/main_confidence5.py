@@ -21,7 +21,7 @@ parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yu
 parser.add_argument('--epoch', type=int, default=200)
 parser.add_argument('--epoch2', type=int, default=200)
 parser.add_argument('--episode', type=int, default=9)
-parser.add_argument('--seed', type=int, default=0)
+parser.add_argument('--seed', type=int, default=4)
 parser.add_argument('--gpu', type=str, default='2')
 parser.add_argument('--dataset', type=str, choices=['cifar10', 'stl10'], default='cifar10')
 parser.add_argument('--query_algorithm', type=str, choices=['high_unseen', 'low_conf', 'high_entropy', 'random'], default='low_conf')

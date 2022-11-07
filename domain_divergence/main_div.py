@@ -91,9 +91,8 @@ if __name__ == "__main__":
         lbl_optimizer = torch.optim.Adam(main_model.parameters(), lr=1e-3, weight_decay=5e-4)
         lbl_scheduler = MultiStepLR(lbl_optimizer, milestones=[160])
         
-        bn_optimzier = torch.optim.Adam(binary_model.parameters(), lr=1e-2, weight_decay=5e-3)
-        bn_scheduler = MultiStepLR(bn_optimzier, milestones=[40,80])
-            
+        bn_optimzier = torch.optim.Adam(binary_model.parameters(), lr=1e-3)
+        bn_scheduler = MultiStepLR(bn_optimzier, milestones=[120,160])            
         curr_path = os.path.join(save_path, f'episode{i}')
         if not os.path.isdir(curr_path):
             os.mkdir(curr_path)
@@ -130,9 +129,7 @@ if __name__ == "__main__":
             lbl_idx = np.array(lbl_idx)
             ulbl_idx = np.array(ulbl_idx)
             
-            print(selected_ulb_idx[:3])
             selected_idx = ulbl_idx[selected_ulb_idx]
-            print(selected_idx[:3])
             lbl_idx = np.concatenate((lbl_idx, selected_idx))
             ulbl_idx = np.delete(ulbl_idx, selected_ulb_idx)
         
