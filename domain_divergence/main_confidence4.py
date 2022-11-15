@@ -18,7 +18,7 @@ import utils
 parser = argparse.ArgumentParser()
 # parser.add_argument('--data_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/data')
 parser.add_argument('--data_path', type=str, default='/SSDb/Workspace/hyj/cifar10')
-parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/domian_divergence/ls00')
+parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/domian_divergence/ls05')
 parser.add_argument('--epoch', type=int, default=200)
 parser.add_argument('--epoch2', type=int, default=200)
 parser.add_argument('--episode', type=int, default=9)
@@ -28,7 +28,7 @@ parser.add_argument('--dataset', type=str, choices=['cifar10', 'stl10'], default
 parser.add_argument('--query_algorithm', type=str, choices=['high_unseen', 'low_conf', 'high_entropy', 'random'], default='low_conf')
 parser.add_argument('--addendum', type=int, default=1000)
 parser.add_argument('--batch_size', type=int, default=256)
-parser.add_argument('--lbl_smoothing', type=int, default=0.0)
+parser.add_argument('--lbl_smoothing', type=int, default=0.05)
 parser.add_argument('--load', type=int, default=0)
 
 args = parser.parse_args()
@@ -72,7 +72,9 @@ if __name__ == "__main__":
             lbl_loader, ulbl_loader, test_loader = loaders.get_loaders()
             
         else:
-            #4. 선별된 데이터를 바탕으로 다시 모델을 학습하고 #2로 이동
+            if os.path.exists(curr_path+'/lbl_idx.pkl') and os.path.exists(curr_path+'/ulbl_idx.pkl'):
+                lbl_idx = pickle.load(open(curr_path+'/lbl_idx.pkl', 'rb'))
+                ulbl_idx = pickle.load(open(curr_path+'/ulbl_idx.pkl', 'rb'))
             train_transform = utils.get_rand_augment(args.dataset)
             test_transform = utils.get_test_augment(args.dataset)
             loaders = dataset.DATALOADERS(lbl_idx, ulbl_idx, args.batch_size, train_transform, test_transform, args.dataset, args.data_path)
@@ -89,7 +91,7 @@ if __name__ == "__main__":
         main_optimizer = torch.optim.Adam(main_model.parameters(), lr=1e-3, weight_decay=5e-4)
         main_scheduler = MultiStepLR(main_optimizer, milestones=[160])
         
-        query_optimizer = torch.optim.Adam(query_model.parameters(), lr=1e-3, weight_decay=5e-4)
+        query_optimizer = torch.optim.Adam(query_model.parameters(), lr=1e-4, weight_decay=5e-4)
         query_scheduler = MultiStepLR(query_optimizer, milestones=[160])
 
         with open(curr_path+'/lbl_idx.pkl', 'wb') as f:
@@ -106,21 +108,21 @@ if __name__ == "__main__":
         with open(save_path+'/total_acc.txt', 'a') as f:
             f.write(f'seed : {args.seed}, episode : {i}, acc : {best_acc}\n')
             
-        if not (i == args.episode-1):
-            best_acc = 0
-            if not args.lbl_smoothing == 0.0:
-                for j in range(args.epoch2):
-                    utils.train(j, query_model, lbl_loader, query_criterion, query_optimizer, device)
-                    utils.query_test(j, query_model, test_loader, query_criterion, curr_path, args.dataset, device, best_acc)
-            
-            query_para = torch.load(os.path.join(curr_path, args.dataset,'query_model.pt')) if not args.lbl_smoothing==0.0 \
-                    else torch.load(os.path.join(curr_path, args.dataset,'model.pt'))
-            query_model.load_state_dict(query_para)
-            
-            selected_ulb_idx = utils.domain_gap_prediction(query_model, query_criterion, ulbl_loader, ulbl_idx, args.query_algorithm, device, args.addendum)
-            lbl_idx = np.array(lbl_idx)
-            ulbl_idx = np.array(ulbl_idx)
-            
-            selected_idx = ulbl_idx[selected_ulb_idx]
-            lbl_idx = np.concatenate((lbl_idx, selected_idx))
-            ulbl_idx = np.delete(ulbl_idx, selected_ulb_idx)
+        query_model.load_state_dict(torch.load(os.path.join(curr_path, args.dataset,'model.pt')))
+        best_acc = 0
+        if not args.lbl_smoothing == 0.0:
+            for j in range(args.epoch2):
+                utils.train(j, query_model, lbl_loader, query_criterion, query_optimizer, device)
+                utils.query_test(j, query_model, test_loader, query_criterion, curr_path, args.dataset, device, best_acc)
+        
+        query_para = torch.load(os.path.join(curr_path, args.dataset,'query_model.pt')) if not args.lbl_smoothing==0.0 \
+                else torch.load(os.path.join(curr_path, args.dataset,'model.pt'))
+        query_model.load_state_dict(query_para)
+        
+        selected_ulb_idx = utils.domain_gap_prediction(query_model, query_criterion, ulbl_loader, ulbl_idx, args.query_algorithm, device, args.addendum)
+        lbl_idx = np.array(lbl_idx)
+        ulbl_idx = np.array(ulbl_idx)
+        
+        selected_idx = ulbl_idx[selected_ulb_idx]
+        lbl_idx = np.concatenate((lbl_idx, selected_idx))
+        ulbl_idx = np.delete(ulbl_idx, selected_ulb_idx)

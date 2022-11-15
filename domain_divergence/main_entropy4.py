@@ -23,13 +23,13 @@ parser.add_argument('--epoch', type=int, default=200)
 parser.add_argument('--epoch2', type=int, default=200)
 parser.add_argument('--episode', type=int, default=9)
 parser.add_argument('--seed', type=int, default=3)
-parser.add_argument('--gpu', type=str, default='1')
+parser.add_argument('--gpu', type=str, default='4')
 parser.add_argument('--dataset', type=str, choices=['cifar10', 'stl10'], default='cifar10')
 parser.add_argument('--query_algorithm', type=str, choices=['high_unseen', 'low_conf', 'high_entropy', 'random'], default='high_entropy')
 parser.add_argument('--addendum', type=int, default=1000)
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--lbl_smoothing', type=int, default=0.0)
-parser.add_argument('--load', type=int, default=0)
+parser.add_argument('--load', type=int, default=2)
 
 args = parser.parse_args()
 
@@ -72,7 +72,9 @@ if __name__ == "__main__":
             lbl_loader, ulbl_loader, test_loader = loaders.get_loaders()
             
         else:
-            #4. 선별된 데이터를 바탕으로 다시 모델을 학습하고 #2로 이동
+            if os.path.exists(curr_path+'/lbl_idx.pkl') and os.path.exists(curr_path+'/ulbl_idx.pkl'):
+                lbl_idx = pickle.load(open(curr_path+'/lbl_idx.pkl', 'rb'))
+                ulbl_idx = pickle.load(open(curr_path+'/ulbl_idx.pkl', 'rb'))
             train_transform = utils.get_rand_augment(args.dataset)
             test_transform = utils.get_test_augment(args.dataset)
             loaders = dataset.DATALOADERS(lbl_idx, ulbl_idx, args.batch_size, train_transform, test_transform, args.dataset, args.data_path)
