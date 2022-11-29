@@ -102,18 +102,20 @@ if __name__ == "__main__":
         print('main classification -------------------------------------------------------')
         best_acc = 0
         for j in range(args.epoch):
-            utils.train(j, main_model, lbl_loader, main_criterion, main_optimizer, device)
-            acc = utils.test(j, main_model, test_loader, main_criterion, curr_path, args.dataset, device, best_acc)
+            # utils.train(j, main_model, lbl_loader, main_criterion, main_optimizer, device)
+            # acc = utils.test(j, main_model, test_loader, main_criterion, curr_path, args.dataset, device, best_acc)
+            utils.train(j, query_model, lbl_loader, query_criterion, query_optimizer, device)
+            acc = utils.test(j, query_model, test_loader, query_criterion, curr_path, args.dataset, device, best_acc)
         if acc > best_acc: best_acc = acc
         with open(save_path+'/total_acc.txt', 'a') as f:
             f.write(f'seed : {args.seed}, episode : {i}, acc : {best_acc}\n')
-            
-        query_model.load_state_dict(torch.load(os.path.join(curr_path, args.dataset,'model.pt')))
-        best_acc = 0
-        if not args.lbl_smoothing == 0.0:
-            for j in range(args.epoch2):
-                utils.train(j, query_model, lbl_loader, query_criterion, query_optimizer, device)
-                utils.query_test(j, query_model, test_loader, query_criterion, curr_path, args.dataset, device, best_acc)
+
+        # query_model.load_state_dict(torch.load(os.path.join(curr_path, args.dataset,'model.pt')))
+        # best_acc = 0
+        # if not args.lbl_smoothing == 0.0:
+        #     for j in range(args.epoch2):
+        #         utils.train(j, query_model, lbl_loader, query_criterion, query_optimizer, device)
+        #         utils.query_test(j, query_model, test_loader, query_criterion, curr_path, args.dataset, device, best_acc)
         
         query_para = torch.load(os.path.join(curr_path, args.dataset,'query_model.pt')) if not args.lbl_smoothing==0.0 \
                 else torch.load(os.path.join(curr_path, args.dataset,'model.pt'))

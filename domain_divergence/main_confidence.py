@@ -1,5 +1,4 @@
 import os,sys
-from sched import scheduler
 import numpy as np
 import torch
 import torch.nn as nn
@@ -16,19 +15,19 @@ import dataset
 import utils
 
 parser = argparse.ArgumentParser()
-# parser.add_argument('--data_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/data')
-parser.add_argument('--data_path', type=str, default='/SSDb/Workspace/hyj/cifar10')
-parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/domian_divergence/ls05')
+parser.add_argument('--data_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/data')
+# parser.add_argument('--data_path', type=str, default='/SSDb/Workspace/hyj/cifar10')
+parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/domian_divergence/ls00')
 parser.add_argument('--epoch', type=int, default=200)
 parser.add_argument('--epoch2', type=int, default=200)
 parser.add_argument('--episode', type=int, default=9)
 parser.add_argument('--seed', type=int, default=0)
-parser.add_argument('--gpu', type=str, default='6')
+parser.add_argument('--gpu', type=str, default='1')
 parser.add_argument('--dataset', type=str, choices=['cifar10', 'stl10'], default='cifar10')
 parser.add_argument('--query_algorithm', type=str, choices=['high_unseen', 'low_conf', 'high_entropy', 'random'], default='low_conf')
 parser.add_argument('--addendum', type=int, default=1000)
 parser.add_argument('--batch_size', type=int, default=256)
-parser.add_argument('--lbl_smoothing', type=int, default=0.05)
+parser.add_argument('--lbl_smoothing', type=int, default=0.0)
 parser.add_argument('--load', type=int, default=0)
 
 args = parser.parse_args()
@@ -38,7 +37,7 @@ if not args.seed==None:
     random.seed(args.seed)
     torch.random.manual_seed(args.seed)
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda:3' if torch.cuda.is_available() else 'cpu'
 episode = args.episode
 if not os.path.isdir(args.save_path):
     os.mkdir(args.save_path)
@@ -87,10 +86,10 @@ if __name__ == "__main__":
         main_criterion = nn.CrossEntropyLoss()
         query_criterion = nn.CrossEntropyLoss(label_smoothing=args.lbl_smoothing)
         
-        main_optimizer = torch.optim.Adam(main_model.parameters(), lr=1e-3, weight_decay=5e-4)
+        main_optimizer = torch.optim.SGD(main_model.parameters(), lr=1e-2, weight_decay=5e-4)
         main_scheduler = MultiStepLR(main_optimizer, milestones=[160])
         
-        query_optimizer = torch.optim.Adam(query_model.parameters(), lr=1e-4, weight_decay=5e-4)
+        query_optimizer = torch.optim.Adam(query_model.parameters(), lr=1e-3, weight_decay=5e-4)
         query_scheduler = MultiStepLR(query_optimizer, milestones=[160])
 
         with open(curr_path+'/lbl_idx.pkl', 'wb') as f:
@@ -101,8 +100,10 @@ if __name__ == "__main__":
         print('main classification -------------------------------------------------------')
         best_acc = 0
         for j in range(args.epoch):
-            utils.train(j, main_model, lbl_loader, main_criterion, main_optimizer, device)
-            acc = utils.test(j, main_model, test_loader, main_criterion, curr_path, args.dataset, device, best_acc)
+            # utils.train(j, main_model, lbl_loader, main_criterion, main_optimizer, device)
+            # acc = utils.test(j, main_model, test_loader, main_criterion, curr_path, args.dataset, device, best_acc)
+            utils.train(j, query_model, lbl_loader, query_criterion, query_optimizer, device)
+            acc = utils.test(j, query_model, test_loader, query_criterion, curr_path, args.dataset, device, best_acc)
         if acc > best_acc: best_acc = acc
         with open(save_path+'/total_acc.txt', 'a') as f:
             f.write(f'seed : {args.seed}, episode : {i}, acc : {best_acc}\n')

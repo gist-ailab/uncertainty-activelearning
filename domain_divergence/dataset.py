@@ -1,5 +1,4 @@
 import os,sys
-from sklearn.utils import shuffle
 import torch
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms

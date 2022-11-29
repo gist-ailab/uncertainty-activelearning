@@ -1,9 +1,10 @@
 import os
 import torch
-import torch.nn.functional as F 
+import torch.nn.functional as F
 import numpy as np
 import torchvision.transforms as transforms
 from tqdm import tqdm
+from resnet import *
 
 def get_rand_augment(dataset):
     if dataset == 'cifar10':
@@ -214,6 +215,29 @@ def domain_gap_prediction(model, criterion, ulbl_loader, ulbl_idx, sign, device,
     
     if sign=='random':
         return list(np.random.randint(0, len(ulbl_idx), size=K))
+    
+def query_algorithm(model, criterion, ulbl_loader, ulbl_idx, device, model_paths, K):
+    model_dict = dict()
+    for i in range(len(model_paths)):
+        model_dict[i] = ResNet18().to(device)
+        model_dict[i].load_state_dict(torch.load(model_paths[i]))
+    
+    conf_list = torch.tensor([]).to(device)
+    with torch.no_grad():
+        pbar = tqdm(ulbl_loader)
+        for i, (inputs, _) in enumerate(pbar):
+            inputs = inputs.to(device)
+            temp_tensor = torch.tensor([]).to(device)
+            for j in range(len(model_dict)):
+                outputs = model_dict[j](inputs)
+                confidence = torch.max(F.softmax(outputs, dim=1),dim=1)
+                if len(temp_tensor)==0:
+                    temp_tensor = torch.cat((temp_tensor, confidence.values), 0)
+                else:
+                    temp_tensor = temp_tensor + confidence.values
+            conf_list = torch.cat((conf_list,temp_tensor),0)
+        arg = conf_list.argsort().cpu().numpy()
+    return list(arg[:K])
 
 def model_freeze(model):
     for _,child in model.named_children():

@@ -16,19 +16,19 @@ import dataset
 import utils
 
 parser = argparse.ArgumentParser()
-# parser.add_argument('--data_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/data')
-parser.add_argument('--data_path', type=str, default='/SSDb/Workspace/hyj/cifar10')
-parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/domian_divergence/ls05')
+parser.add_argument('--data_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/data')
+# parser.add_argument('--data_path', type=str, default='/SSDb/Workspace/hyj/cifar10')
+parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/domian_divergence/ls00')
 parser.add_argument('--epoch', type=int, default=200)
 parser.add_argument('--epoch2', type=int, default=200)
 parser.add_argument('--episode', type=int, default=9)
 parser.add_argument('--seed', type=int, default=1)
-parser.add_argument('--gpu', type=str, default='6')
+parser.add_argument('--gpu', type=str, default='3')
 parser.add_argument('--dataset', type=str, choices=['cifar10', 'stl10'], default='cifar10')
 parser.add_argument('--query_algorithm', type=str, choices=['high_unseen', 'low_conf', 'high_entropy', 'random'], default='low_conf')
 parser.add_argument('--addendum', type=int, default=1000)
 parser.add_argument('--batch_size', type=int, default=256)
-parser.add_argument('--lbl_smoothing', type=int, default=0.05)
+parser.add_argument('--lbl_smoothing', type=int, default=0.0)
 parser.add_argument('--load', type=int, default=0)
 
 args = parser.parse_args()
@@ -39,7 +39,7 @@ if not args.seed==None:
     random.seed(args.seed)
     torch.random.manual_seed(args.seed)
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda:4' if torch.cuda.is_available() else 'cpu'
 episode = args.episode
 if not os.path.isdir(args.save_path):
     os.mkdir(args.save_path)
@@ -102,13 +102,15 @@ if __name__ == "__main__":
         print('main classification -------------------------------------------------------')
         best_acc = 0
         for j in range(args.epoch):
-            utils.train(j, main_model, lbl_loader, main_criterion, main_optimizer, device)
-            acc = utils.test(j, main_model, test_loader, main_criterion, curr_path, args.dataset, device, best_acc)
+            # utils.train(j, main_model, lbl_loader, main_criterion, main_optimizer, device)
+            # acc = utils.test(j, main_model, test_loader, main_criterion, curr_path, args.dataset, device, best_acc)
+            utils.train(j, query_model, lbl_loader, query_criterion, query_optimizer, device)
+            acc = utils.test(j, query_model, test_loader, query_criterion, curr_path, args.dataset, device, best_acc)
         if acc > best_acc: best_acc = acc
         with open(save_path+'/total_acc.txt', 'a') as f:
             f.write(f'seed : {args.seed}, episode : {i}, acc : {best_acc}\n')
-        
-        query_model.load_state_dict(torch.load(os.path.join(curr_path, args.dataset,'model.pt')))
+
+        # query_model.load_state_dict(torch.load(os.path.join(curr_path, args.dataset,'model.pt')))
         best_acc = 0
         if not args.lbl_smoothing == 0.0:
             for j in range(args.epoch2):

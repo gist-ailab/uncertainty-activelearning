@@ -16,20 +16,20 @@ import dataset
 import utils
 
 parser = argparse.ArgumentParser()
-# parser.add_argument('--data_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/data')
-parser.add_argument('--data_path', type=str, default='/SSDb/Workspaces/yunjae.heo/cifar10')
+parser.add_argument('--data_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/data')
+# parser.add_argument('--data_path', type=str, default='/SSDb/Workspaces/yunjae.heo/cifar10')
 parser.add_argument('--save_path', type=str, default='/ailab_mat/personal/heo_yunjae/Parameters/Uncertainty/domian_divergence/ls00')
 parser.add_argument('--epoch', type=int, default=200)
 parser.add_argument('--epoch2', type=int, default=200)
 parser.add_argument('--episode', type=int, default=9)
 parser.add_argument('--seed', type=int, default=2)
-parser.add_argument('--gpu', type=str, default='4')
+parser.add_argument('--gpu', type=str, default='7')
 parser.add_argument('--dataset', type=str, choices=['cifar10', 'stl10'], default='cifar10')
 parser.add_argument('--query_algorithm', type=str, choices=['high_unseen', 'low_conf', 'high_entropy', 'random'], default='high_entropy')
 parser.add_argument('--addendum', type=int, default=1000)
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--lbl_smoothing', type=int, default=0.0)
-parser.add_argument('--load', type=int, default=2)
+parser.add_argument('--load', type=int, default=0)
 
 args = parser.parse_args()
 
@@ -39,7 +39,7 @@ if not args.seed==None:
     random.seed(args.seed)
     torch.random.manual_seed(args.seed)
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda:7' if torch.cuda.is_available() else 'cpu'
 episode = args.episode
 if not os.path.isdir(args.save_path):
     os.mkdir(args.save_path)
