@@ -96,7 +96,7 @@ if __name__ == "__main__":
             # acc = utils.test(j, main_model, test_loader, main_criterion, curr_path, args.dataset, device, best_acc)
             utils.train(j, main_model, lbl_loader, main_criterion, main_optimizer, device)
             acc = utils.test(j, main_model, test_loader, main_criterion, curr_path, args.dataset, device, best_acc)
-        if acc > best_acc: best_acc = acc
+            if acc > best_acc: best_acc = acc
         with open(save_path+'/total_acc.txt', 'a') as f:
             f.write(f'seed : {args.seed}, episode : {i}, acc : {best_acc}\n')
         

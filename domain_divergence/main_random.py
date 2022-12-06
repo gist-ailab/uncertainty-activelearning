@@ -102,7 +102,7 @@ if __name__ == "__main__":
         for j in range(args.epoch):
             utils.train(j, main_model, lbl_loader, criterion, lbl_optimizer, device)
             acc = utils.test(j, main_model, test_loader, criterion, curr_path, args.dataset, device, best_acc)
-        if acc > best_acc: best_acc = acc
+            if acc > best_acc: best_acc = acc
         with open(save_path+'/total_acc.txt', 'a') as f:
             f.write(f'seed : {args.seed}, episode : {i}, acc : {best_acc}\n')
             
